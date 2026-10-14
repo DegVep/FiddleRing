@@ -46,3 +46,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: W heal effect removed (green sparks sat in the model). W tether: back to the mod's own tendril instead of League's beam, now ONE continuous ribbon per victim (shared edges, texture along its length), no pulses or flow dots.
 - 2026-10-14: VFX fixes from Star Nemesis E: particleLinger no longer added to particle life (it stretched colour curves x17, slashes stayed transparent); birthUVOffsetMult + uvScrollClamp(Mult) so swipe masks slide once; material texture prefers Main_Texture (Skin27 demon arms had a placeholder Diffuse_Texture -> black arm). Cache v11.
 - 2026-10-14: destroyed effects (missile landed, target gone, stop(), max age) cap every particle to its particleLinger, like League; Praetorian Q missile parts stayed hanging in the air.
+- 2026-10-14: W heal missiles (League W_Mis, little hands) removed; each drain tick shows the effects-sheet sparks on the enemy.

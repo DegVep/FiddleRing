@@ -1,6 +1,6 @@
 {
   "sheet": "vfx_events",
-  "doc": "Moments of the kit and the League particle system each plays, by the skin's resource key (key = a name hashed like League does, or #hex for keys League ships unnamed); every skin maps the same keys to its own systems. attach: caster (follows him), bone:<joint> (his bone), target (the enemy hit), point (the cast point, turned to the cast), missile (follows the missile), beam (from his chest to the target), fly_to_caster (moves from the target to him). scale multiplies League units after Fiddlesticks' model scale. Events with no system in a skin fall back to the effects sheet. W's tether is not League's beam but the mod's own curved tendrils (effects sheet, creator's choice); the heal has no effect.",
+  "doc": "Moments of the kit and the League particle system each plays, by the skin's resource key (key = a name hashed like League does, or #hex for keys League ships unnamed); every skin maps the same keys to its own systems. attach: caster (follows him), bone:<joint> (his bone), target (the enemy hit), point (the cast point, turned to the cast), missile (follows the missile), beam (from his chest to the target), fly_to_caster (moves from the target to him). scale multiplies League units after Fiddlesticks' model scale. Events with no system in a skin fall back to the effects sheet. W's tether is not League's beam but the mod's own curved tendrils (effects sheet, creator's choice); the heal has no effect. No heal missiles either (League's W_Mis are little hands flying from the enemies to him; the creator found them odd).",
   "columns": [
     "id",
     "key",
@@ -99,13 +99,6 @@
       "attach": "target",
       "scale": 1.0,
       "note": "on each drained enemy"
-    },
-    {
-      "id": "w_heal_missile",
-      "key": "FiddleSticks_W_Mis",
-      "attach": "fly_to_caster",
-      "scale": 1.0,
-      "note": "stolen life flying from a drained enemy to him at each tick"
     },
     {
       "id": "w_final",

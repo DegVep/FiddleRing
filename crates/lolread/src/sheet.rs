@@ -236,7 +236,6 @@ pub const VFX_EVENTS: &[VfxEvent] = &[
     VfxEvent { id: "w_cast", key: "FiddleSticks_W_cas", attach: "caster", scale: 1.0 },
     VfxEvent { id: "w_body", key: "FiddleSticks_W_Body_Tendrils", attach: "caster", scale: 1.0 },
     VfxEvent { id: "w_target", key: "FiddleSticks_W_Tar", attach: "target", scale: 1.0 },
-    VfxEvent { id: "w_heal_missile", key: "FiddleSticks_W_Mis", attach: "fly_to_caster", scale: 1.0 },
     VfxEvent { id: "w_final", key: "#c03dac2b", attach: "target", scale: 1.0 },
     VfxEvent { id: "e_cast", key: "FiddleSticks_E_Cut", attach: "point", scale: 1.0 },
     VfxEvent { id: "e_hit", key: "Fiddlesticks_E_Tar", attach: "target", scale: 1.0 },
