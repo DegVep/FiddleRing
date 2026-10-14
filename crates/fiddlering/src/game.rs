@@ -205,6 +205,8 @@ pub struct Game {
     in_range: [bool; 5],
     frame: u64,
     hidden_logged: bool,
+    /// the game draws the Tarnished (false during cutscenes)
+    player_drawn: bool,
     dt: f32,
     ui_seen: u128,
     hud_seen: i32,
@@ -389,6 +391,7 @@ impl Game {
             w_slowed: false,
             in_range: [true; 5],
             frame: 0,
+            player_drawn: true,
             hidden_logged: false,
             dt: 0.0,
             ui_seen: 0,
@@ -586,6 +589,16 @@ impl Game {
             self.publish(None);
             return;
         };
+        // cutscenes: the game stops drawing the real Tarnished (an actor plays the scene), so does Fiddlesticks
+        let drawn = player.chr_ins.chr_flags1c5.enable_render();
+        if drawn != self.player_drawn {
+            self.player_drawn = drawn;
+            log!("player drawn by the game: {drawn}");
+        }
+        if !drawn {
+            self.publish(None);
+            return;
+        }
         let player_ptr = &player.chr_ins as *const ChrIns as usize;
         let me = read_chr(&player.chr_ins);
         let ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
@@ -598,7 +611,7 @@ impl Game {
         // whose progress: the loaded save slot and the character's name
         {
             let pgd = unsafe { player.player_game_data.as_ref() };
-            let name: String = String::from_utf16_lossy(&pgd.character_name).trim_end_matches(' ').chars().filter(|c| c.is_alphanumeric()).collect();
+            let name: String = String::from_utf16_lossy(&pgd.character_name).trim_end_matches('\0').chars().filter(|c| c.is_alphanumeric()).collect();
             let slot = unsafe { eldenring::cs::GameMan::instance() }.map(|g| g.save_slot).unwrap_or(-1);
             let key = format!("{slot}_{name}");
             if self.save_key.as_deref() != Some(key.as_str()) {
