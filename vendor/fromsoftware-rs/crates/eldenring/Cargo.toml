@@ -1,0 +1,29 @@
+[package]
+name = "eldenring"
+version = "0.14.0"
+edition = "2024"
+repository = "https://github.com/vswarte/eldenring-rs"
+license = "MIT OR Apache-2.0"
+readme = false
+description = "Structures, bindings, and utilities for From Software's title Elden Ring"
+
+[dependencies]
+fromsoftware-shared = { path = "../shared", version = "0.14.0" }
+thiserror = "1"
+glam = ">= 0.30"
+pelite = "0.10"
+vtable-rs = "0.1.5"
+windows = { version = "0.61", features = ["Win32_Foundation","Win32_System_Kernel","Win32_System_Threading","Win32_UI_Input_KeyboardAndMouse","Win32_System_Diagnostics_Debug","Win32_System_LibraryLoader","Win32_System_Memory","Win32_Security"] }
+bitfield = "0.19.5"
+bitflags = "2.13.1"
+encoding_rs = "0.8.35"
+num_enum = "0.7"
+
+[dependencies.fromsoftware-shared-stl]
+path = "../shared/stl"
+version = "0.14.0"
+features = ["msvc2015"]
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc"]

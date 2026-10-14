@@ -1,0 +1,37 @@
+# FiddleRing — MODLOG
+
+Mashup: play Elden Ring as League of Legends' Fiddlesticks (model, animations, abilities, voice), League-style
+levels 1-18. Host: Elden Ring 2.7.1.0 (Steam, D:\SteamLibrary\steamapps\common\ELDEN RING). Companion: League of
+Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches ER through ModEngine2, EAC off).
+
+## Route
+- ER: native Rust DLL loaded by ModEngine2 (`external_dlls`), Melty installs ModEngine2 release-2.1.0 itself.
+  Game structures from fromsoftware-rs 0.14 (`eldenring` crate, Ww2710 RVA table matches exe 2.7.1.0).
+- League: `fiddlering-prep.exe` runs as Melty's setup step, reads the player's own WADs
+  (`{game:league-of-legends}/Game/DATA/FINAL/Champions/FiddleSticks*.wad.client`) and writes a local cache in
+  `%LOCALAPPDATA%\FiddleRing\cache`. Nothing from League is shipped.
+- Rendering: own D3D12 renderer hooked on the game's swapchain Present (vtable hooks), draws the skinned League
+  mesh at the hidden Tarnished's transform and a League-style HUD.
+- Toolchain: Rust stable-x86_64-pc-windows-gnu (no MSVC on this PC).
+
+## League facts (16.20)
+- WAD 3.4: TOC entry byte 20 = kind|subchunks<<4, bytes 22..24 = first subchunk (u16), byte 21 = its high byte.
+  Subchunk table chunk: `data/final/champions/fiddlesticks.wad.subchunktoc` (16 bytes each).
+- Skin0 bin `data/characters/fiddlesticks/skins/skin0.bin`: skl/skn `ASSETS/Characters/Fiddlesticks/Skins/Base/Fiddlesticks_Base.*`,
+  texture link 7194126061746782290 (BC1 1024², TEX), Weapon submesh texture link 17933396972034605902,
+  initial hidden submeshes "L_Demon_Arm Lantern Tongue R_Demon_Arm", bbox 140x300x140.
+- Animations `data/characters/fiddlesticks/animations/skin0.bin`: AtomicClipData → mAnimationFilePath (WAD link),
+  all clips are r3d2anmd v5 (uncompressed). SubmeshVisibilityEventData shows demon arms etc.
+- Spells in `data/characters/fiddlesticks/fiddlesticks.bin` (DataValues indexed by rank).
+- VO (es_ES) lives in FiddleSticks.es_ES.wad.client under unknown paths: identify banks by event ids.
+- SFX: `ASSETS/Sounds/Wwise2016/SFX/Characters/Fiddlesticks/Skins/Base/Fiddlesticks_Base_SFX_{audio,events}.bnk`.
+- Icons: `assets/characters/fiddlesticks/hud/icons2d/fiddlesticks{q,w,e,r}.dds` (DDS), portrait
+  `assets/characters/fiddlesticks/hud/fiddlesticks_circle_0.tex`.
+
+## ER facts
+- Default KB binds: Q lock-on, E interact, R use item, F jump, Space dodge, arrows switch slots → 1-4 are free.
+- `CSChrActionRequestModule.disabled_action_inputs` blocks ER actions (binding independent).
+- `ChrIns.debug_flags` per character: disabled_secondary_actions / disabled_movement (used for fear/silence).
+
+## Log
+- 2026-10-12: design agreed with creator (Fiddlesticks kit only, League levelling, MIT + remix).

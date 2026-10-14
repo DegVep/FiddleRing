@@ -1,0 +1,186 @@
+{
+  "sheet": "er_actions",
+  "doc": "Every Elden Ring player action (ChrActions bit). use: Fiddlesticks = read as one of his abilities, then cleared before the Tarnished acts on it (blocking them outright also hides them from the mod: seen in game); blocked = taken away (League champions don't roll, drink flasks or use items); kept = Elden Ring still does it.",
+  "columns": [
+    "id",
+    "bit",
+    "use",
+    "what"
+  ],
+  "rows": [
+    {
+      "id": "r1",
+      "bit": 0,
+      "use": "Fiddlesticks",
+      "what": "basic attack"
+    },
+    {
+      "id": "r2",
+      "bit": 1,
+      "use": "Fiddlesticks",
+      "what": "Terrify (Q)"
+    },
+    {
+      "id": "l1",
+      "bit": 2,
+      "use": "Fiddlesticks",
+      "what": "Bountiful Harvest (W)"
+    },
+    {
+      "id": "l2",
+      "bit": 3,
+      "use": "Fiddlesticks",
+      "what": "Reap (E)"
+    },
+    {
+      "id": "action",
+      "bit": 4,
+      "use": "blocked",
+      "what": "pouch / quick items"
+    },
+    {
+      "id": "sp_move",
+      "bit": 5,
+      "use": "blocked",
+      "what": "dodge roll / backstep"
+    },
+    {
+      "id": "jump",
+      "bit": 6,
+      "use": "kept",
+      "what": "jump: Elden Ring traversal needs it"
+    },
+    {
+      "id": "use_item",
+      "bit": 7,
+      "use": "blocked",
+      "what": "flasks and quick items"
+    },
+    {
+      "id": "switch_form",
+      "bit": 8,
+      "use": "blocked",
+      "what": "switch spell"
+    },
+    {
+      "id": "change_weapon_r",
+      "bit": 9,
+      "use": "blocked",
+      "what": "switch right weapon"
+    },
+    {
+      "id": "change_weapon_l",
+      "bit": 10,
+      "use": "blocked",
+      "what": "switch left weapon"
+    },
+    {
+      "id": "change_item",
+      "bit": 11,
+      "use": "blocked",
+      "what": "switch quick item"
+    },
+    {
+      "id": "r3",
+      "bit": 12,
+      "use": "kept",
+      "what": "lock-on: picks Fiddlesticks' target"
+    },
+    {
+      "id": "l3",
+      "bit": 13,
+      "use": "kept",
+      "what": "crouch"
+    },
+    {
+      "id": "backstep",
+      "bit": 16,
+      "use": "blocked",
+      "what": "backstep"
+    },
+    {
+      "id": "rolling",
+      "bit": 17,
+      "use": "blocked",
+      "what": "roll"
+    },
+    {
+      "id": "magic_r",
+      "bit": 19,
+      "use": "blocked",
+      "what": "catalyst spell"
+    },
+    {
+      "id": "magic_l",
+      "bit": 20,
+      "use": "blocked",
+      "what": "catalyst spell"
+    },
+    {
+      "id": "gesture",
+      "bit": 21,
+      "use": "blocked",
+      "what": "Elden Ring gestures (Fiddlesticks has his own, Alt+1-4)"
+    },
+    {
+      "id": "guard",
+      "bit": 24,
+      "use": "blocked",
+      "what": "guard"
+    },
+    {
+      "id": "emergencystep",
+      "bit": 25,
+      "use": "blocked",
+      "what": "quickstep"
+    },
+    {
+      "id": "light_kick",
+      "bit": 26,
+      "use": "blocked",
+      "what": "kick"
+    },
+    {
+      "id": "heavy_kick",
+      "bit": 27,
+      "use": "blocked",
+      "what": "kick"
+    },
+    {
+      "id": "change_style_r",
+      "bit": 28,
+      "use": "Fiddlesticks",
+      "what": "Crowstorm (R)"
+    },
+    {
+      "id": "change_style_l",
+      "bit": 29,
+      "use": "blocked",
+      "what": "two-hand left"
+    },
+    {
+      "id": "rideon",
+      "bit": 30,
+      "use": "kept",
+      "what": "call Torrent: the map is too big on foot"
+    },
+    {
+      "id": "rideoff",
+      "bit": 31,
+      "use": "kept",
+      "what": "Torrent"
+    },
+    {
+      "id": "magic_r2",
+      "bit": 33,
+      "use": "blocked",
+      "what": "weapon catalyst spell"
+    },
+    {
+      "id": "magic_l2",
+      "bit": 34,
+      "use": "blocked",
+      "what": "weapon catalyst spell"
+    }
+  ]
+}

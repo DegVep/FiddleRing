@@ -1,0 +1,182 @@
+{
+  "sheet": "animations",
+  "doc": "Fiddlesticks animation states the DLL plays on his model. league_clip = clip name in the skin0 animation graph. next = state after a one-shot ends (none for loops).",
+  "columns": [
+    "id",
+    "league_clip",
+    "loop",
+    "speed",
+    "blend",
+    "next"
+  ],
+  "rows": [
+    {
+      "id": "idle",
+      "league_clip": "IdleA",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.2,
+      "next": "none"
+    },
+    {
+      "id": "run",
+      "league_clip": "Run_Base",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.15,
+      "next": "none"
+    },
+    {
+      "id": "run_fast",
+      "league_clip": "Run_Haste",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.15,
+      "next": "none"
+    },
+    {
+      "id": "attack1",
+      "league_clip": "Attack1_A",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "attack2",
+      "league_clip": "Attack2_A",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "crit",
+      "league_clip": "Crit",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "melee1",
+      "league_clip": "Melee_Attack1",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "melee2",
+      "league_clip": "Melee_Attack2",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "q",
+      "league_clip": "Spell1",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "w_start",
+      "league_clip": "Spell2",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "w_loop"
+    },
+    {
+      "id": "w_loop",
+      "league_clip": "Spell2_Channel",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.1,
+      "next": "none"
+    },
+    {
+      "id": "w_end",
+      "league_clip": "Spell2_Hit",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.1,
+      "next": "idle"
+    },
+    {
+      "id": "e",
+      "league_clip": "Spell3_Mid",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.08,
+      "next": "idle"
+    },
+    {
+      "id": "r_channel",
+      "league_clip": "Spell4",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.1,
+      "next": "idle"
+    },
+    {
+      "id": "death",
+      "league_clip": "Death",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.1,
+      "next": "none"
+    },
+    {
+      "id": "respawn",
+      "league_clip": "Respawn",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.1,
+      "next": "idle"
+    },
+    {
+      "id": "joke",
+      "league_clip": "Joke",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.2,
+      "next": "idle"
+    },
+    {
+      "id": "taunt",
+      "league_clip": "Taunt",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.2,
+      "next": "idle"
+    },
+    {
+      "id": "dance",
+      "league_clip": "Dance_Loop",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.2,
+      "next": "none"
+    },
+    {
+      "id": "laugh",
+      "league_clip": "Laugh",
+      "loop": false,
+      "speed": 1.0,
+      "blend": 0.2,
+      "next": "idle"
+    },
+    {
+      "id": "recall",
+      "league_clip": "Recall",
+      "loop": true,
+      "speed": 1.0,
+      "blend": 0.3,
+      "next": "none"
+    }
+  ]
+}

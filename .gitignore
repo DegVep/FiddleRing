@@ -1,0 +1,10 @@
+target/
+tools/
+downloads/
+dist/
+cache/
+*.log
+save-backup/
+media/
+graphify-out/
+.claude/

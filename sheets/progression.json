@@ -1,0 +1,101 @@
+{
+  "sheet": "progression",
+  "doc": "League champion levels 1-18. xp_total = total experience needed to reach the level (League table). rank_up = the usual Fiddlesticks skill order (R when possible, then W > Q > E): the player picks their own ranks; this column is only used by test runs and as the HUD hint.",
+  "columns": [
+    "level",
+    "xp_total",
+    "rank_up"
+  ],
+  "rows": [
+    {
+      "level": 1,
+      "xp_total": 0,
+      "rank_up": "q"
+    },
+    {
+      "level": 2,
+      "xp_total": 280,
+      "rank_up": "w"
+    },
+    {
+      "level": 3,
+      "xp_total": 660,
+      "rank_up": "e"
+    },
+    {
+      "level": 4,
+      "xp_total": 1140,
+      "rank_up": "w"
+    },
+    {
+      "level": 5,
+      "xp_total": 1720,
+      "rank_up": "w"
+    },
+    {
+      "level": 6,
+      "xp_total": 2400,
+      "rank_up": "r"
+    },
+    {
+      "level": 7,
+      "xp_total": 3180,
+      "rank_up": "w"
+    },
+    {
+      "level": 8,
+      "xp_total": 4060,
+      "rank_up": "q"
+    },
+    {
+      "level": 9,
+      "xp_total": 5040,
+      "rank_up": "w"
+    },
+    {
+      "level": 10,
+      "xp_total": 6120,
+      "rank_up": "q"
+    },
+    {
+      "level": 11,
+      "xp_total": 7300,
+      "rank_up": "r"
+    },
+    {
+      "level": 12,
+      "xp_total": 8580,
+      "rank_up": "q"
+    },
+    {
+      "level": 13,
+      "xp_total": 9960,
+      "rank_up": "q"
+    },
+    {
+      "level": 14,
+      "xp_total": 11440,
+      "rank_up": "e"
+    },
+    {
+      "level": 15,
+      "xp_total": 13020,
+      "rank_up": "e"
+    },
+    {
+      "level": 16,
+      "xp_total": 14700,
+      "rank_up": "r"
+    },
+    {
+      "level": 17,
+      "xp_total": 16480,
+      "rank_up": "e"
+    },
+    {
+      "level": 18,
+      "xp_total": 18360,
+      "rank_up": "e"
+    }
+  ]
+}

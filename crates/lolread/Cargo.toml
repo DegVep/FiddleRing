@@ -1,0 +1,12 @@
+[package]
+name = "lolread"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ruzstd = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+bincode = "1"

@@ -1,0 +1,262 @@
+{
+  "sheet": "league_assets",
+  "doc": "Every League file the mashup reads from the player's own install. wad: champion = FiddleSticks.wad.client, locale = FiddleSticks.<locale>.wad.client. locator: path, link:<u64>, or bankevents:<event> (bank found by the event ids it holds).",
+  "columns": [
+    "id",
+    "wad",
+    "locator",
+    "kind",
+    "required",
+    "used_by"
+  ],
+  "rows": [
+    {
+      "id": "skin_bin",
+      "wad": "champion",
+      "locator": "data/characters/fiddlesticks/skins/skin0.bin",
+      "kind": "bin",
+      "required": true,
+      "used_by": "prep:model"
+    },
+    {
+      "id": "anim_bin",
+      "wad": "champion",
+      "locator": "data/characters/fiddlesticks/animations/skin0.bin",
+      "kind": "bin",
+      "required": true,
+      "used_by": "prep:animations"
+    },
+    {
+      "id": "champ_bin",
+      "wad": "champion",
+      "locator": "data/characters/fiddlesticks/fiddlesticks.bin",
+      "kind": "bin",
+      "required": true,
+      "used_by": "prep:abilities"
+    },
+    {
+      "id": "mesh",
+      "wad": "champion",
+      "locator": "skin_bin:skinMeshProperties.simpleSkin",
+      "kind": "skn",
+      "required": true,
+      "used_by": "dll:render"
+    },
+    {
+      "id": "skeleton",
+      "wad": "champion",
+      "locator": "skin_bin:skinMeshProperties.skeleton",
+      "kind": "skl",
+      "required": true,
+      "used_by": "dll:render"
+    },
+    {
+      "id": "tex_body",
+      "wad": "champion",
+      "locator": "skin_bin:skinMeshProperties.texture",
+      "kind": "tex",
+      "required": true,
+      "used_by": "dll:render"
+    },
+    {
+      "id": "tex_weapon",
+      "wad": "champion",
+      "locator": "skin_bin:skinMeshProperties.materialOverride[Weapon]",
+      "kind": "tex",
+      "required": true,
+      "used_by": "dll:render"
+    },
+    {
+      "id": "icon_portrait",
+      "wad": "champion",
+      "locator": "assets/characters/fiddlesticks/hud/fiddlesticks_circle_0.tex",
+      "kind": "tex",
+      "required": true,
+      "used_by": "dll:hud"
+    },
+    {
+      "id": "icon_q",
+      "wad": "champion",
+      "locator": "assets/characters/fiddlesticks/hud/icons2d/fiddlesticksq.dds",
+      "kind": "dds",
+      "required": true,
+      "used_by": "dll:hud"
+    },
+    {
+      "id": "icon_w",
+      "wad": "champion",
+      "locator": "assets/characters/fiddlesticks/hud/icons2d/fiddlesticksw.dds",
+      "kind": "dds",
+      "required": true,
+      "used_by": "dll:hud"
+    },
+    {
+      "id": "icon_e",
+      "wad": "champion",
+      "locator": "assets/characters/fiddlesticks/hud/icons2d/fiddlestickse.dds",
+      "kind": "dds",
+      "required": true,
+      "used_by": "dll:hud"
+    },
+    {
+      "id": "icon_r",
+      "wad": "champion",
+      "locator": "assets/characters/fiddlesticks/hud/icons2d/fiddlesticksr.dds",
+      "kind": "dds",
+      "required": true,
+      "used_by": "dll:hud"
+    },
+    {
+      "id": "sfx_audio",
+      "wad": "champion",
+      "locator": "ASSETS/Sounds/Wwise2016/SFX/Characters/Fiddlesticks/Skins/Base/Fiddlesticks_Base_SFX_audio.bnk",
+      "kind": "bnk",
+      "required": true,
+      "used_by": "prep:audio"
+    },
+    {
+      "id": "sfx_events",
+      "wad": "champion",
+      "locator": "ASSETS/Sounds/Wwise2016/SFX/Characters/Fiddlesticks/Skins/Base/Fiddlesticks_Base_SFX_events.bnk",
+      "kind": "bnk",
+      "required": true,
+      "used_by": "prep:audio"
+    },
+    {
+      "id": "vo_events",
+      "wad": "locale",
+      "locator": "bankevents:Play_vo_Fiddlesticks_Move2DFirst",
+      "kind": "bnk",
+      "required": false,
+      "used_by": "prep:audio"
+    },
+    {
+      "id": "vo_audio",
+      "wad": "locale",
+      "locator": "wpk:vo_events",
+      "kind": "wpk",
+      "required": false,
+      "used_by": "prep:audio"
+    },
+    {
+      "id": "fx_aa_head",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_BA_Missile_Head.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_q_ray",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_Q_Ray.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_q_crow",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Base_Q_Crow.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_q_mark",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_Q_Spectral_Mult.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_w_beam",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_W_Tendril_Beam.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_w_ring",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_W_Indicator.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_e_ring",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_E_Indicator.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_r_shock",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_r_Shockwave.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_r_smoke",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Base_R_OilySmoke_2x2.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_r_feathers",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/common_Feathers.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_glow",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/Fiddlesticks_Base_Soft_Glow.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "fx_sparks",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Base_R_Sparks.tex",
+      "kind": "tex",
+      "required": false,
+      "used_by": "dll:effects"
+    },
+    {
+      "id": "raven_skn",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Raven_DeathBody_FlyOut.skn",
+      "kind": "skn",
+      "required": false,
+      "used_by": "dll:effects (3D crows, textured with fx_q_crow)"
+    },
+    {
+      "id": "raven_skl",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Raven_DeathBody_FlyOut.skl",
+      "kind": "skl",
+      "required": false,
+      "used_by": "dll:effects (3D crows, textured with fx_q_crow)"
+    },
+    {
+      "id": "raven_anm",
+      "wad": "champion",
+      "locator": "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Base_Q_RavenFly.anm",
+      "kind": "anm",
+      "required": false,
+      "used_by": "dll:effects (3D crows, textured with fx_q_crow)"
+    }
+  ]
+}

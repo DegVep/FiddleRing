@@ -1,0 +1,29 @@
+{
+  "sheet": "er_hooks",
+  "doc": "Every Elden Ring (2.7.1.0) system the DLL touches. symbol = fromsoftware-rs path or our own hook. verified = seen working in the running game (filled in after in-game tests; build preflight only needs the other cells).",
+  "columns": ["id", "system", "symbol", "access", "used_by", "verified"],
+  "rows": [
+    {"id": "frame_task", "system": "game loop", "symbol": "CSTaskImp::run_recurring(FrameBegin)", "access": "hook", "used_by": "all gameplay ticks", "verified": "no"},
+    {"id": "main_player", "system": "player", "symbol": "WorldChrMan.main_player", "access": "read", "used_by": "all", "verified": "no"},
+    {"id": "player_transform", "system": "player", "symbol": "ChrIns.chr_ctrl.model_matrix", "access": "read", "used_by": "render model placement", "verified": "no"},
+    {"id": "player_position", "system": "player", "symbol": "ChrIns.modules.physics.position/orientation", "access": "read+write", "used_by": "targeting, R blink", "verified": "no"},
+    {"id": "player_hide", "system": "player", "symbol": "ChrIns.opacity_keyframes_multiplier / base_transparency", "access": "write", "used_by": "hide the Tarnished under Fiddlesticks", "verified": "no"},
+    {"id": "player_actions_block", "system": "input", "symbol": "ChrIns.modules.action_request.disabled_action_inputs", "access": "write", "used_by": "no Elden Ring weapons or spells", "verified": "no"},
+    {"id": "player_actions_read", "system": "input", "symbol": "ChrIns.modules.action_request.action_requests", "access": "read", "used_by": "AA/Q/W/E/R triggers on pad and bound keys", "verified": "no"},
+    {"id": "player_hp", "system": "player", "symbol": "ChrIns.modules.data.hp/max_hp", "access": "read+write", "used_by": "W heal, death detection", "verified": "no"},
+    {"id": "player_fp", "system": "player", "symbol": "ChrIns.modules.data.fp/max_fp", "access": "read", "used_by": "Cerulean flask restores mana", "verified": "no"},
+    {"id": "player_anim", "system": "player", "symbol": "ChrIns.modules.time_act.anim_queue", "access": "read", "used_by": "dodge/death/grace state for model animation", "verified": "no"},
+    {"id": "player_level", "system": "player", "symbol": "PlayerIns.player_game_data.level", "access": "read", "used_by": "ability power from rune level", "verified": "no"},
+    {"id": "player_lockon", "system": "targeting", "symbol": "PlayerIns.locked_on_enemy", "access": "read", "used_by": "AA/Q target", "verified": "no"},
+    {"id": "player_move_lock", "system": "player", "symbol": "ChrIns.debug_flags.disabled_movement", "access": "write", "used_by": "R channel roots Fiddlesticks", "verified": "no"},
+    {"id": "enemies", "system": "world", "symbol": "WorldChrMan.chr_inses_by_distance", "access": "read", "used_by": "targets for every ability", "verified": "no"},
+    {"id": "enemy_hp", "system": "combat", "symbol": "ChrIns.modules.data.hp", "access": "write", "used_by": "damage", "verified": "no"},
+    {"id": "enemy_cc", "system": "combat", "symbol": "ChrIns.debug_flags.disabled_secondary_actions/disabled_movement", "access": "write", "used_by": "fear and silence", "verified": "no"},
+    {"id": "enemy_slow", "system": "combat", "symbol": "ChrIns.modules.behavior.animation_speed", "access": "write", "used_by": "E slow", "verified": "no"},
+    {"id": "camera", "system": "render", "symbol": "CSCamera.pers_cam_1 (matrix, fov, aspect, near, far)", "access": "read", "used_by": "draw model and effects in the world", "verified": "no"},
+    {"id": "menu_open", "system": "ui", "symbol": "CSMenuManImp / CSFeManImp state", "access": "read", "used_by": "hide HUD in menus, pause casting", "verified": "no"},
+    {"id": "present_hook", "system": "render", "symbol": "IDXGISwapChain::Present (vtable)", "access": "hook", "used_by": "draw model + HUD each frame", "verified": "no"},
+    {"id": "queue_hook", "system": "render", "symbol": "ID3D12CommandQueue::ExecuteCommandLists (vtable)", "access": "hook", "used_by": "find the game's direct queue", "verified": "no"},
+    {"id": "keys", "system": "input", "symbol": "GetAsyncKeyState while the game window is focused", "access": "read", "used_by": "1-4 abilities, Ctrl+1-4 emotes", "verified": "no"}
+  ]
+}

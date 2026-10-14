@@ -1,0 +1,10 @@
+[package]
+name = "fiddlering-prep"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lolread = { path = "../lolread" }
+anyhow = "1"
+png = "0.17"

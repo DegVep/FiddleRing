@@ -1,0 +1,138 @@
+{
+  "sheet": "tuning",
+  "doc": "How League numbers become Elden Ring numbers. One row per constant.",
+  "columns": [
+    "id",
+    "value",
+    "unit",
+    "why"
+  ],
+  "rows": [
+    {
+      "id": "model_scale",
+      "value": 0.0055,
+      "unit": "m per League unit",
+      "why": "seen in game: 0.0075 made him 1.5x the Tarnished; 0.0055 puts his ~370-unit pose at about 2 m, a head taller"
+    },
+    {
+      "id": "range_scale",
+      "value": 0.012,
+      "unit": "m per League unit",
+      "why": "League ranges feel short against Elden Ring enemies; AA 480 -> 5.8 m, E 850 -> 10.2 m"
+    },
+    {
+      "id": "ap_per_rune_level",
+      "value": 4.0,
+      "unit": "ability power per Elden Ring level above 1",
+      "why": "levelling at graces still matters: level 50 -> 196 AP, level 150 -> 596 AP"
+    },
+    {
+      "id": "damage_scale",
+      "value": 1.0,
+      "unit": "x",
+      "why": "League damage against Elden Ring HP is already close (Limgrave soldier ~150 HP vs Q 40-120)"
+    },
+    {
+      "id": "xp_per_enemy_hp",
+      "value": 0.35,
+      "unit": "xp per max HP of a killed enemy",
+      "why": "a Limgrave soldier (~200 HP) gives 70 XP, like a League minion wave share"
+    },
+    {
+      "id": "xp_min",
+      "value": 20.0,
+      "unit": "xp",
+      "why": "weak critters still count"
+    },
+    {
+      "id": "xp_max",
+      "value": 1500.0,
+      "unit": "xp",
+      "why": "a boss is worth about a level"
+    },
+    {
+      "id": "aa_cone_deg",
+      "value": 75.0,
+      "unit": "degrees",
+      "why": "without lock-on, basic attacks and Terror pick the nearest enemy in front of the camera"
+    },
+    {
+      "id": "missile_speed",
+      "value": 18.0,
+      "unit": "m/s",
+      "why": "crow bolts visibly travel"
+    },
+    {
+      "id": "e_silence_inner",
+      "value": 0.4,
+      "unit": "fraction of E radius",
+      "why": "League silences enemies in the centre of Reap"
+    },
+    {
+      "id": "r_ticks_per_second",
+      "value": 4.0,
+      "unit": "ticks",
+      "why": "League Crowstorm ticks 4 times per second"
+    },
+    {
+      "id": "mana_flask_ratio",
+      "value": 1.0,
+      "unit": "mana fraction per FP fraction",
+      "why": "a Cerulean Flask restores the same share of mana as of FP"
+    },
+    {
+      "id": "model_yaw_deg",
+      "value": 0.0,
+      "unit": "degrees",
+      "why": "turns League's model forward onto the Tarnished's facing; checked in game"
+    },
+    {
+      "id": "model_mirror_x",
+      "value": 1.0,
+      "unit": "+1 or -1",
+      "why": "League meshes are authored mirrored in X relative to some engines; checked in game"
+    },
+    {
+      "id": "e_slow_duration",
+      "value": 1.25,
+      "unit": "s",
+      "why": "League's Reap slow lasts 1.25 s (tooltip); the spell data only has the silence duration"
+    },
+    {
+      "id": "fear_anim_speed",
+      "value": 0.35,
+      "unit": "x animation speed",
+      "why": "Elden Ring AI cannot be made to flee: fear freezes the enemy's actions and slows its animation instead"
+    },
+    {
+      "id": "mana_scale",
+      "value": 1.0,
+      "unit": "x",
+      "why": "League mana pool and costs as they are"
+    },
+    {
+      "id": "audio_volume",
+      "value": 0.3,
+      "unit": "x League's mix",
+      "why": "League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game"
+    },
+    {
+      "id": "aa_anim_fraction",
+      "value": 0.75,
+      "unit": "of the attack period",
+      "why": "League stretches the attack clip to the attack speed: Attack1's own events run to frame 37 of an 11-frame clip, about 3/4 of Fiddlesticks' 1.6 s attack"
+    },
+    {
+      "id": "aa_windup_fraction",
+      "value": 0.4,
+      "unit": "of the attack animation",
+      "why": "the bolt leaves his demon hand a little before the middle of the swing (FiddleSticks_BA_Cas runs frames 8-19 of 37)"
+    },
+    {
+      "id": "melee_range",
+      "value": 2.5,
+      "unit": "m",
+      "why": "League plays Melee_Attack1/2 when the target is right next to him: a claw swipe, no bolt"
+    }
+  ]
+}

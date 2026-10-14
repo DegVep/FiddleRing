@@ -1,0 +1,55 @@
+{
+  "sheet": "er_menus",
+  "doc": "Elden Ring screens by CSMenuManImp.ui_states index (seen in game through the DLL's UI log). action: hide = Fiddlesticks and his HUD are not drawn; close = FiddleRing closes the screen as it opens (League champions have no equipment or inventory); keep = nothing. verified = id seen for that screen in game.",
+  "columns": [
+    "id",
+    "ui_index",
+    "screen",
+    "action",
+    "verified"
+  ],
+  "rows": [
+    {
+      "id": "loading",
+      "ui_index": 6,
+      "screen": "loading screen",
+      "action": "hide",
+      "verified": "yes"
+    },
+    {
+      "id": "main_menu",
+      "ui_index": 28,
+      "screen": "Esc / Start menu (map, status, system and quit stay reachable)",
+      "action": "keep",
+      "verified": "yes"
+    },
+    {
+      "id": "equipment",
+      "ui_index": 29,
+      "screen": "Equipment",
+      "action": "close",
+      "verified": "yes"
+    },
+    {
+      "id": "inventory",
+      "ui_index": 31,
+      "screen": "Inventory",
+      "action": "close",
+      "verified": "yes"
+    },
+    {
+      "id": "system",
+      "ui_index": 37,
+      "screen": "System / settings (key config, graphics...)",
+      "action": "hide",
+      "verified": "yes"
+    },
+    {
+      "id": "map",
+      "ui_index": 61,
+      "screen": "Map (M / G)",
+      "action": "hide",
+      "verified": "yes"
+    }
+  ]
+}

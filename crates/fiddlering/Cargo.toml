@@ -1,0 +1,40 @@
+[package]
+name = "fiddlering"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+lolread = { path = "../lolread" }
+eldenring = { path = "../../vendor/fromsoftware-rs/crates/eldenring" }
+fromsoftware-shared = { path = "../../vendor/fromsoftware-rs/crates/shared" }
+anyhow = "1"
+glam = "0.30"
+retour = "0.3.1"
+png = "0.17"
+
+[dependencies.windows]
+version = "0.61"
+features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_XAudio2",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_System_SystemInformation",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Security",
+]
