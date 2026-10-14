@@ -2643,6 +2643,32 @@ impl Game {
                     }
                 }
             }
+            // under the slots, Zhonya's active as a button: [T] ESTASIS, pulsing when ready
+            if self.items.iter().any(|id| sheet::ITEMS.iter().any(|r| r.id == *id && r.effect == "stasis")) {
+                let (x, y, w, bh) = (h.x - 1.0, h.y + 74.0, 106.0, 22.0);
+                let left_s = self.stasis_ready_at - self.clock;
+                let active = self.clock < self.stasis_until;
+                let ready = left_s <= 0.0;
+                let pulse = 0.5 + 0.5 * (self.clock * 4.0).sin();
+                let edge = if ready || active { [gold[0], gold[1], gold[2], 0.6 + 0.4 * pulse] } else { gold_dim };
+                if ready {
+                    out.push(rect(x - 3.0, y - 3.0, w + 6.0, bh + 6.0, [1.0, 0.78, 0.30, 0.25 * pulse], "white"));
+                }
+                out.push(rect(x - 1.0, y - 1.0, w + 2.0, bh + 2.0, edge, "white"));
+                out.push(rect(x, y, w, bh, [0.03, 0.04, 0.05, 0.95], "white"));
+                // the key cap
+                out.push(rect(x + 3.0, y + 3.0, 16.0, 16.0, if ready { gold } else { gold_dim }, "white"));
+                out.push(rect(x + 4.0, y + 4.0, 14.0, 14.0, [0.08, 0.07, 0.05, 1.0], "white"));
+                label(out, "T", x + 11.0, y + 4.5, 13.0, if ready { [1.0, 0.86, 0.50, 1.0] } else { grey });
+                let (txt, col) = if active {
+                    ("ESTASIS".to_string(), [1.0, 0.90, 0.55, 1.0])
+                } else if ready {
+                    ("ESTASIS".to_string(), gold)
+                } else {
+                    (format!("{:.0} s", left_s.ceil()), grey)
+                };
+                label(out, &txt, x + 23.0 + (w - 26.0) * 0.5, y + 5.0, 12.0, col);
+            }
         }
         // a card: icon, name, stats, passive
         let card = |out: &mut Vec<Sprite>, id: u32, x: f32, y: f32, w: f32, h: f32, chosen: bool| {
