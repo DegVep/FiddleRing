@@ -370,4 +370,6 @@ pub mod tuning {
     pub const HIDE_ER_BARS: f32 = 1.0;
     /// after a boss dies, the item choice opens once every boss health bar has been gone this long (a boss's second phase keeps its bar) (s)
     pub const ITEM_OFFER_DELAY: f32 = 2.0;
+    /// a strong (team 7) enemy dying this close to a full-screen banner request (ENEMY FELLED) counts as a boss: the boss health bars are not filled while Elden Ring's HUD is hidden (s)
+    pub const BOSS_BANNER_WINDOW: f32 = 6.0;
 }

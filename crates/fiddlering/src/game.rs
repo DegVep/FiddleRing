@@ -157,6 +157,10 @@ pub struct Game {
     /// bosses whose health bar showed, a boss died and when the bars cleared
     boss_ptrs: HashSet<usize>,
     boss_died: bool,
+    /// last strong (team 7) enemy we killed, last full-screen banner the game asked for, and its id
+    strong_kill_at: f32,
+    banner_at: f32,
+    banner_id: i32,
     bars_clear_at: f32,
     /// item burns: (character, until, share of max HP per second, carried damage)
     burns: Vec<(usize, f32, f32, f32)>,
@@ -369,6 +373,9 @@ impl Game {
             item_keys: [false; 4],
             boss_ptrs: HashSet::new(),
             boss_died: false,
+            strong_kill_at: -100.0,
+            banner_at: -100.0,
+            banner_id: 0,
             bars_clear_at: 0.0,
             burns: vec![],
             model_yaw: 0.0,
@@ -884,6 +891,11 @@ impl Game {
             }
             if chr_mut(p).modules.data.hp <= 0 {
                 self.damaged.remove(&p);
+                if chr_mut(p).team_type == 7 {
+                    // a strong enemy: a boss if the game asks for its "felled" banner (track_bosses)
+                    self.strong_kill_at = self.clock;
+                    log!("strong enemy killed: chr {} (max hp {max_hp})", chr_mut(p).character_id);
+                }
                 xp_gain += (max_hp as f32 * tuning::XP_PER_ENEMY_HP).clamp(tuning::XP_MIN, tuning::XP_MAX);
                 kills += 1;
             }
@@ -2381,8 +2393,26 @@ impl Game {
     /// Bosses with a health bar on screen; when one dies and every bar has gone, three items are offered.
     fn track_bosses(&mut self, wcm: &WorldChrMan) {
         let Ok(fe) = (unsafe { eldenring::cs::CSFeManImp::instance() }) else { return };
+        // the game's full-screen banners ("enemy felled", "you died"...): asked for even while its HUD is hidden
+        let banner = fe.frontend_values.full_screen_message_request_id;
+        if banner != self.banner_id {
+            log!("FE banner {} -> {banner}", self.banner_id);
+            self.banner_id = banner;
+            if banner > 0 {
+                self.banner_at = self.clock;
+            }
+        }
+        if self.banner_at > 0.0 && self.strong_kill_at > 0.0 && (self.banner_at - self.strong_kill_at).abs() < tuning::BOSS_BANNER_WINDOW {
+            log!("BOSS defeated (banner {} with a strong enemy's death)", self.banner_id);
+            self.banner_at = -100.0;
+            self.strong_kill_at = -100.0;
+            self.boss_died = true;
+        }
         let mut any_bar = false;
         for e in fe.boss_health_displays.iter() {
+            if e.fmg_id != 0 && e.fmg_id != -1 && self.frame % 300 == 0 {
+                log!("boss display entry: fmg {} dmg {}", e.fmg_id, e.damage_taken);
+            }
             if e.fmg_id <= 0 {
                 continue;
             }

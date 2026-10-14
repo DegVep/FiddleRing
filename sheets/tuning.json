@@ -229,6 +229,12 @@
       "value": 2.0,
       "unit": "s",
       "why": "after a boss dies, the item choice opens once every boss health bar has been gone this long (a boss's second phase keeps its bar)"
+    },
+    {
+      "id": "boss_banner_window",
+      "value": 6.0,
+      "unit": "s",
+      "why": "a strong (team 7) enemy dying this close to a full-screen banner request (ENEMY FELLED) counts as a boss: the boss health bars are not filled while Elden Ring's HUD is hidden"
     }
   ]
 }
