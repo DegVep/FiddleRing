@@ -578,6 +578,14 @@ impl Game {
         }
 
         self.watch_menus();
+        // Elden Ring's own HP / FP / stamina bars: Fiddlesticks' HUD shows his health instead
+        if tuning::HIDE_ER_BARS > 0.5 {
+            if let Ok(fe) = unsafe { eldenring::cs::CSFeManImp::instance_mut() } {
+                if fe.hud_state == eldenring::cs::CSFeManHudState::Default {
+                    fe.hud_state = eldenring::cs::CSFeManHudState::HideAll;
+                }
+            }
+        }
         self.update_skins();
         // loading screens (er_menus sheet): nothing of Fiddlesticks on them
         if sheet::HIDE_ON_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {

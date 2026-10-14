@@ -53,3 +53,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: model turns smoothly (exponential ease of yaw, tuning model_turn_rate 12/s) instead of snapping; fixed a literal NUL char in game.rs.
 - 2026-10-14: hide Fiddlesticks (and HUD) while the game does not draw the Tarnished (chr_flags1c5.enable_render false: cutscenes); log "player drawn by the game". Unverified: if it is false in normal play Fiddlesticks would vanish. Also fixed the literal NUL char for real.
 - 2026-10-14: HUD hidden while talking (er_menus action hud; ui 1 = subtitles, unverified) and 1.5 s after.
+- 2026-10-14: vanilla HP/FP/stamina bars hidden: CSFeManImp.hud_state Default -> HideAll every tick (tuning hide_er_bars). Unverified.

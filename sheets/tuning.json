@@ -217,6 +217,12 @@
       "value": 12.0,
       "unit": "1/s",
       "why": "how fast Fiddlesticks' model turns to a new direction (higher = snappier; ~12 turns most of the way in 0.2 s) instead of snapping"
+    },
+    {
+      "id": "hide_er_bars",
+      "value": 1.0,
+      "unit": "1 = on",
+      "why": "Elden Ring's own HP/FP/stamina bars are hidden (CSFeManImp.hud_state Default -> HideAll each frame); compass and equipment stay"
     }
   ]
 }

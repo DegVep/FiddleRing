@@ -349,4 +349,6 @@ pub mod tuning {
     pub const VFX_FLY_TIME: f32 = 0.45;
     /// how fast Fiddlesticks' model turns to a new direction (higher = snappier; ~12 turns most of the way in 0.2 s) instead of snapping (1/s)
     pub const MODEL_TURN_RATE: f32 = 12.0;
+    /// Elden Ring's own HP/FP/stamina bars are hidden (CSFeManImp.hud_state Default -> HideAll each frame); compass and equipment stay (1 = on)
+    pub const HIDE_ER_BARS: f32 = 1.0;
 }
