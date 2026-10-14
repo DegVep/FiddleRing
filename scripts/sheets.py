@@ -124,7 +124,7 @@ def preflight(release=False, verify_path=None):
                 if sp is None:
                     problems.append(f"abilities[{r['id']}].league_spell: not found")
                     continue
-                for c in ("mana", "cooldown", "range", "radius", "cc_value"):
+                for c in ("cooldown", "range", "radius", "cc_value"):
                     val = r[c]
                     if val in ("none", "attack_speed") or ":" in val:
                         continue

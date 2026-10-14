@@ -11,7 +11,6 @@
     {"id": "player_actions_block", "system": "input", "symbol": "ChrIns.modules.action_request.disabled_action_inputs", "access": "write", "used_by": "no Elden Ring weapons or spells", "verified": "no"},
     {"id": "player_actions_read", "system": "input", "symbol": "ChrIns.modules.action_request.action_requests", "access": "read", "used_by": "AA/Q/W/E/R triggers on pad and bound keys", "verified": "no"},
     {"id": "player_hp", "system": "player", "symbol": "ChrIns.modules.data.hp/max_hp", "access": "read+write", "used_by": "W heal, death detection", "verified": "no"},
-    {"id": "player_fp", "system": "player", "symbol": "ChrIns.modules.data.fp/max_fp", "access": "read", "used_by": "Cerulean flask restores mana", "verified": "no"},
     {"id": "player_anim", "system": "player", "symbol": "ChrIns.modules.time_act.anim_queue", "access": "read", "used_by": "dodge/death/grace state for model animation", "verified": "no"},
     {"id": "player_level", "system": "player", "symbol": "PlayerIns.player_game_data.level", "access": "read", "used_by": "ability power from rune level", "verified": "no"},
     {"id": "player_lockon", "system": "targeting", "symbol": "PlayerIns.locked_on_enemy", "access": "read", "used_by": "AA/Q target", "verified": "no"},

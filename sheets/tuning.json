@@ -75,12 +75,6 @@
       "why": "League Crowstorm ticks 4 times per second"
     },
     {
-      "id": "mana_flask_ratio",
-      "value": 1.0,
-      "unit": "mana fraction per FP fraction",
-      "why": "a Cerulean Flask restores the same share of mana as of FP"
-    },
-    {
       "id": "model_yaw_deg",
       "value": 0.0,
       "unit": "degrees",
@@ -105,12 +99,6 @@
       "why": "Elden Ring AI cannot be made to flee: fear freezes the enemy's actions and slows its animation instead"
     },
     {
-      "id": "mana_scale",
-      "value": 1.0,
-      "unit": "x",
-      "why": "League mana pool and costs as they are"
-    },
-    {
       "id": "audio_volume",
       "value": 0.3,
       "unit": "x League's mix",
@@ -118,9 +106,9 @@
     },
     {
       "id": "aa_anim_fraction",
-      "value": 0.75,
+      "value": 0.35,
       "unit": "of the attack period",
-      "why": "League stretches the attack clip to the attack speed: Attack1's own events run to frame 37 of an 11-frame clip, about 3/4 of Fiddlesticks' 1.6 s attack"
+      "why": "Attack1 is 0.33 s raw (too snappy) and 0.75 of the 1.6 s period (1.2 s) felt sluggish: ~0.55 s at level 1, back to the raw clip at high attack speed"
     },
     {
       "id": "aa_windup_fraction",
@@ -133,6 +121,12 @@
       "value": 2.5,
       "unit": "m",
       "why": "League plays Melee_Attack1/2 when the target is right next to him: a claw swipe, no bolt"
+    },
+    {
+      "id": "w_self_slow",
+      "value": 0.3,
+      "unit": "x Tarnished animation speed",
+      "why": "the Tarnished's movement slows down hard while Bountiful Harvest drains, back to normal when it ends (creator's request)"
     }
   ]
 }

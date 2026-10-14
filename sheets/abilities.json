@@ -1,6 +1,6 @@
 {
   "sheet": "abilities",
-  "doc": "Fiddlesticks kit in Elden Ring. Numbers come from the player's League data (spell DataValues by rank); this sheet says which values each ability reads and how it lands in Elden Ring. ER actions are blocked from the game and read as triggers, so they follow the player's own key bindings and pad. Ranks are chosen by the player like in League: one skill point per champion level (Ctrl+1-4, or pressing an unlearned ability with a free point). rank_rule: half_level = rank may not exceed ceil(level/2); levels:a,b,c = one rank allowed at each of those levels; fixed = always rank 1. unlock_level = first champion level the ability can be learned.",
+  "doc": "Fiddlesticks kit in Elden Ring. Numbers come from the player's League data (spell DataValues by rank); this sheet says which values each ability reads and how it lands in Elden Ring. ER actions are blocked from the game and read as triggers, so they follow the player's own key bindings and pad. No mana: abilities cost nothing (the creator found it added nothing). Ranks are chosen by the player like in League: one skill point per champion level (Ctrl+1-4, or pressing an unlearned ability with a free point). rank_rule: half_level = rank may not exceed ceil(level/2); levels:a,b,c = one rank allowed at each of those levels; fixed = always rank 1. unlock_level = first champion level the ability can be learned.",
   "columns": [
     "id",
     "slot",
@@ -11,7 +11,7 @@
     "unlock_level",
     "max_rank",
     "rank_rule",
-    "mana",
+    "name",
     "cooldown",
     "range",
     "radius",
@@ -35,7 +35,6 @@
       "unlock_level": 1,
       "max_rank": 1,
       "rank_rule": "fixed",
-      "mana": "none",
       "cooldown": "attack_speed",
       "range": "stat:attackRange",
       "radius": "none",
@@ -46,7 +45,8 @@
       "vo": "vo_aa",
       "sfx_cast": "sfx_aa_cast",
       "sfx_hit": "sfx_aa_hit",
-      "icon": "none"
+      "icon": "none",
+      "name": "Ataque"
     },
     {
       "id": "q",
@@ -58,7 +58,6 @@
       "unlock_level": 1,
       "max_rank": 5,
       "rank_rule": "half_level",
-      "mana": "Mana",
       "cooldown": "CooldownTime",
       "range": "CastRange",
       "radius": "none",
@@ -69,7 +68,8 @@
       "vo": "vo_attack",
       "sfx_cast": "sfx_q_cast",
       "sfx_hit": "sfx_q_hit",
-      "icon": "icon_q"
+      "icon": "icon_q",
+      "name": "Terror"
     },
     {
       "id": "w",
@@ -81,7 +81,6 @@
       "unlock_level": 1,
       "max_rank": 5,
       "rank_rule": "half_level",
-      "mana": "Mana",
       "cooldown": "CooldownTime",
       "range": "CastRange",
       "radius": "DrainLeashRange",
@@ -92,7 +91,8 @@
       "vo": "vo_move",
       "sfx_cast": "sfx_w_cast",
       "sfx_hit": "sfx_w_final",
-      "icon": "icon_w"
+      "icon": "icon_w",
+      "name": "Cosecha"
     },
     {
       "id": "e",
@@ -104,7 +104,6 @@
       "unlock_level": 1,
       "max_rank": 5,
       "rank_rule": "half_level",
-      "mana": "Mana",
       "cooldown": "CooldownTime",
       "range": "CastRange",
       "radius": "castRadius",
@@ -115,7 +114,8 @@
       "vo": "vo_e",
       "sfx_cast": "sfx_e_cast",
       "sfx_hit": "sfx_e_hit",
-      "icon": "icon_e"
+      "icon": "icon_e",
+      "name": "Siega"
     },
     {
       "id": "r",
@@ -127,7 +127,6 @@
       "unlock_level": 6,
       "max_rank": 3,
       "rank_rule": "levels:6,11,16",
-      "mana": "Mana",
       "cooldown": "CooldownTime",
       "range": "blink:800",
       "radius": "castRadius",
@@ -138,7 +137,8 @@
       "vo": "vo_r",
       "sfx_cast": "sfx_r_cast",
       "sfx_hit": "sfx_r_storm",
-      "icon": "icon_r"
+      "icon": "icon_r",
+      "name": "Tormenta"
     }
   ]
 }

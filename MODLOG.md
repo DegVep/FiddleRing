@@ -36,3 +36,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 ## Log
 - 2026-10-12: design agreed with creator (Fiddlesticks kit only, League levelling, MIT + remix).
 - 2026-10-14: guards at the start (Godrick soldiers c4311/c4351, c4070) are team_type 48 — added as hostile to er_teams. AA now slows its clip to ~75% of the attack period, swaps to Melee_Attack1/2 within 2.5 m (damage at windup, no missile). Casts with no target log the 6 nearest characters.
+- 2026-10-14: mana removed (creator). AA clip ~0.55 s (aa_anim_fraction 0.35). W slows the Tarnished (animation_speed 0.3) while draining. New HUD: framed gradient panel, HP bar with ticks, ability names/keys/sweep, stats box, cast bar; font atlas now full ASCII + Spanish with measured advances.

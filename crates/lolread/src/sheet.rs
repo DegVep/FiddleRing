@@ -25,13 +25,13 @@ pub const ANIMS: &[Anim] = &[
     Anim { id: "recall", league_clip: "Recall", looped: true, speed: 1.0, blend: 0.3, next: "none" },
 ];
 
-pub struct Ability { pub id: &'static str, pub slot: &'static str, pub league_spell: &'static str, pub key: &'static str, pub er_action: &'static str, pub anim: &'static str, pub unlock_level: u32, pub max_rank: u32, pub rank_rule: &'static str, pub mana: &'static str, pub cooldown: &'static str, pub range: &'static str, pub radius: &'static str, pub effect: &'static str, pub damage: &'static str, pub cc: &'static str, pub cc_value: &'static str, pub vo: &'static str, pub sfx_cast: &'static str, pub sfx_hit: &'static str, pub icon: &'static str }
+pub struct Ability { pub id: &'static str, pub slot: &'static str, pub league_spell: &'static str, pub key: &'static str, pub er_action: &'static str, pub anim: &'static str, pub unlock_level: u32, pub max_rank: u32, pub rank_rule: &'static str, pub name: &'static str, pub cooldown: &'static str, pub range: &'static str, pub radius: &'static str, pub effect: &'static str, pub damage: &'static str, pub cc: &'static str, pub cc_value: &'static str, pub vo: &'static str, pub sfx_cast: &'static str, pub sfx_hit: &'static str, pub icon: &'static str }
 pub const ABILITIES: &[Ability] = &[
-    Ability { id: "aa", slot: "AA", league_spell: "Characters/FiddleSticks/Spells/FiddleSticksBasicAttack", key: "none", er_action: "r1", anim: "attack1", unlock_level: 1, max_rank: 1, rank_rule: "fixed", mana: "none", cooldown: "attack_speed", range: "stat:attackRange", radius: "none", effect: "aa_missile", damage: "stat:ad", cc: "none", cc_value: "none", vo: "vo_aa", sfx_cast: "sfx_aa_cast", sfx_hit: "sfx_aa_hit", icon: "none" },
-    Ability { id: "q", slot: "Q", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksQAbility/FiddleSticksQ", key: "1", er_action: "r2", anim: "q", unlock_level: 1, max_rank: 5, rank_rule: "half_level", mana: "Mana", cooldown: "CooldownTime", range: "CastRange", radius: "none", effect: "q_fear", damage: "max(MinimumDamage, (MaxHealthDamage + 0.0003*ap) * target_hp), doubled on a feared target", cc: "fear", cc_value: "FearDuration", vo: "vo_attack", sfx_cast: "sfx_q_cast", sfx_hit: "sfx_q_hit", icon: "icon_q" },
-    Ability { id: "w", slot: "W", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksWAbility/FiddleSticksW", key: "2", er_action: "l1", anim: "w_start", unlock_level: 1, max_rank: 5, rank_rule: "half_level", mana: "Mana", cooldown: "CooldownTime", range: "CastRange", radius: "DrainLeashRange", effect: "w_drain", damage: "(DamagePerSecond + 0.45*ap) per second over DrainDuration in TicksPerSecond ticks; final tick PercentMultiplier * missing_hp; heals VampPercentage % of damage", cc: "none", cc_value: "none", vo: "vo_move", sfx_cast: "sfx_w_cast", sfx_hit: "sfx_w_final", icon: "icon_w" },
-    Ability { id: "e", slot: "E", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksEAbility/FiddleSticksE", key: "3", er_action: "l2", anim: "e", unlock_level: 1, max_rank: 5, rank_rule: "half_level", mana: "Mana", cooldown: "CooldownTime", range: "CastRange", radius: "castRadius", effect: "e_reap", damage: "BaseDamage + 0.5*ap", cc: "slow+silence", cc_value: "SlowAmount", vo: "vo_e", sfx_cast: "sfx_e_cast", sfx_hit: "sfx_e_hit", icon: "icon_e" },
-    Ability { id: "r", slot: "R", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksRAbility/FiddleSticksR", key: "4", er_action: "change_style_r", anim: "r_channel", unlock_level: 6, max_rank: 3, rank_rule: "levels:6,11,16", mana: "Mana", cooldown: "CooldownTime", range: "blink:800", radius: "castRadius", effect: "r_crowstorm", damage: "(DamagePerSecond + APRatio*ap) per second over Duration, after ChannelTime", cc: "none", cc_value: "none", vo: "vo_r", sfx_cast: "sfx_r_cast", sfx_hit: "sfx_r_storm", icon: "icon_r" },
+    Ability { id: "aa", slot: "AA", league_spell: "Characters/FiddleSticks/Spells/FiddleSticksBasicAttack", key: "none", er_action: "r1", anim: "attack1", unlock_level: 1, max_rank: 1, rank_rule: "fixed", name: "Ataque", cooldown: "attack_speed", range: "stat:attackRange", radius: "none", effect: "aa_missile", damage: "stat:ad", cc: "none", cc_value: "none", vo: "vo_aa", sfx_cast: "sfx_aa_cast", sfx_hit: "sfx_aa_hit", icon: "none" },
+    Ability { id: "q", slot: "Q", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksQAbility/FiddleSticksQ", key: "1", er_action: "r2", anim: "q", unlock_level: 1, max_rank: 5, rank_rule: "half_level", name: "Terror", cooldown: "CooldownTime", range: "CastRange", radius: "none", effect: "q_fear", damage: "max(MinimumDamage, (MaxHealthDamage + 0.0003*ap) * target_hp), doubled on a feared target", cc: "fear", cc_value: "FearDuration", vo: "vo_attack", sfx_cast: "sfx_q_cast", sfx_hit: "sfx_q_hit", icon: "icon_q" },
+    Ability { id: "w", slot: "W", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksWAbility/FiddleSticksW", key: "2", er_action: "l1", anim: "w_start", unlock_level: 1, max_rank: 5, rank_rule: "half_level", name: "Cosecha", cooldown: "CooldownTime", range: "CastRange", radius: "DrainLeashRange", effect: "w_drain", damage: "(DamagePerSecond + 0.45*ap) per second over DrainDuration in TicksPerSecond ticks; final tick PercentMultiplier * missing_hp; heals VampPercentage % of damage", cc: "none", cc_value: "none", vo: "vo_move", sfx_cast: "sfx_w_cast", sfx_hit: "sfx_w_final", icon: "icon_w" },
+    Ability { id: "e", slot: "E", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksEAbility/FiddleSticksE", key: "3", er_action: "l2", anim: "e", unlock_level: 1, max_rank: 5, rank_rule: "half_level", name: "Siega", cooldown: "CooldownTime", range: "CastRange", radius: "castRadius", effect: "e_reap", damage: "BaseDamage + 0.5*ap", cc: "slow+silence", cc_value: "SlowAmount", vo: "vo_e", sfx_cast: "sfx_e_cast", sfx_hit: "sfx_e_hit", icon: "icon_e" },
+    Ability { id: "r", slot: "R", league_spell: "Characters/Fiddlesticks/Spells/FiddleSticksRAbility/FiddleSticksR", key: "4", er_action: "change_style_r", anim: "r_channel", unlock_level: 6, max_rank: 3, rank_rule: "levels:6,11,16", name: "Tormenta", cooldown: "CooldownTime", range: "blink:800", radius: "castRadius", effect: "r_crowstorm", damage: "(DamagePerSecond + APRatio*ap) per second over Duration, after ChannelTime", cc: "none", cc_value: "none", vo: "vo_r", sfx_cast: "sfx_r_cast", sfx_hit: "sfx_r_storm", icon: "icon_r" },
 ];
 
 pub struct Sound { pub id: &'static str, pub bank: &'static str, pub event: &'static str, pub volume: f32, pub chance: f32, pub min_interval: f32 }
@@ -125,16 +125,19 @@ pub const ASSETS: &[Asset] = &[
 
 pub struct HudItem { pub id: &'static str, pub kind: &'static str, pub source: &'static str, pub x: f32, pub y: f32, pub w: f32, pub h: f32, pub binding: &'static str }
 pub const HUD: &[HudItem] = &[
-    HudItem { id: "panel", kind: "rect", source: "computed", x: 690.0, y: 948.0, w: 540.0, h: 124.0, binding: "always" },
-    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 704.0, y: 956.0, w: 100.0, h: 100.0, binding: "always" },
-    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 704.0, y: 1060.0, w: 100.0, h: 6.0, binding: "xp_fraction" },
-    HudItem { id: "level", kind: "text", source: "computed", x: 784.0, y: 1030.0, w: 28.0, h: 28.0, binding: "champion_level" },
-    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 826.0, y: 962.0, w: 64.0, h: 64.0, binding: "ability:q" },
-    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 924.0, y: 962.0, w: 64.0, h: 64.0, binding: "ability:w" },
-    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 1022.0, y: 962.0, w: 64.0, h: 64.0, binding: "ability:e" },
-    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1120.0, y: 962.0, w: 64.0, h: 64.0, binding: "ability:r" },
-    HudItem { id: "mana_bar", kind: "bar", source: "computed", x: 826.0, y: 1046.0, w: 358.0, h: 16.0, binding: "mana_fraction" },
-    HudItem { id: "level_up", kind: "levelup", source: "computed", x: 8.0, y: -34.0, w: 48.0, h: 28.0, binding: "abilities" },
+    HudItem { id: "panel", kind: "rect", source: "computed", x: 640.0, y: 930.0, w: 640.0, h: 140.0, binding: "always" },
+    HudItem { id: "title", kind: "title", source: "computed", x: 960.0, y: 904.0, w: 0.0, h: 20.0, binding: "champion_name" },
+    HudItem { id: "castbar", kind: "castbar", source: "computed", x: 810.0, y: 868.0, w: 300.0, h: 20.0, binding: "channel" },
+    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 656.0, y: 944.0, w: 96.0, h: 96.0, binding: "always" },
+    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 656.0, y: 1048.0, w: 96.0, h: 10.0, binding: "xp_fraction" },
+    HudItem { id: "level", kind: "text", source: "computed", x: 730.0, y: 1018.0, w: 30.0, h: 30.0, binding: "champion_level" },
+    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 776.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:q" },
+    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 872.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:w" },
+    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 968.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:e" },
+    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1064.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
+    HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 776.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
+    HudItem { id: "stats", kind: "stats", source: "computed", x: 1140.0, y: 944.0, w: 126.0, h: 114.0, binding: "champion_stats" },
+    HudItem { id: "level_up", kind: "levelup", source: "computed", x: 6.0, y: -32.0, w: 48.0, h: 26.0, binding: "abilities" },
 ];
 
 pub struct Effect { pub id: &'static str, pub effect: &'static str, pub trigger: &'static str, pub texture: &'static str, pub render: &'static str, pub additive: bool, pub count: u32, pub rate: f32, pub life: f32, pub size_start: f32, pub size_end: f32, pub speed: f32, pub spread: f32, pub up: f32, pub gravity: f32, pub drag: f32, pub spin: f32, pub color_start: [f32; 4], pub color_end: [f32; 4], pub frames: u32, /** m, or -1 = the ability's radius */ pub radius: f32, pub motion: &'static str }
@@ -219,8 +222,6 @@ pub mod tuning {
     pub const E_SILENCE_INNER: f32 = 0.4;
     /// League Crowstorm ticks 4 times per second (ticks)
     pub const R_TICKS_PER_SECOND: f32 = 4.0;
-    /// a Cerulean Flask restores the same share of mana as of FP (mana fraction per FP fraction)
-    pub const MANA_FLASK_RATIO: f32 = 1.0;
     /// turns League's model forward onto the Tarnished's facing; checked in game (degrees)
     pub const MODEL_YAW_DEG: f32 = 0.0;
     /// League meshes are authored mirrored in X relative to some engines; checked in game (+1 or -1)
@@ -229,14 +230,14 @@ pub mod tuning {
     pub const E_SLOW_DURATION: f32 = 1.25;
     /// Elden Ring AI cannot be made to flee: fear freezes the enemy's actions and slows its animation instead (x animation speed)
     pub const FEAR_ANIM_SPEED: f32 = 0.35;
-    /// League mana pool and costs as they are (x)
-    pub const MANA_SCALE: f32 = 1.0;
     /// League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game (x League's mix)
     pub const AUDIO_VOLUME: f32 = 0.3;
-    /// League stretches the attack clip to the attack speed: Attack1's own events run to frame 37 of an 11-frame clip, about 3/4 of Fiddlesticks' 1.6 s attack (of the attack period)
-    pub const AA_ANIM_FRACTION: f32 = 0.75;
+    /// Attack1 is 0.33 s raw (too snappy) and 0.75 of the 1.6 s period (1.2 s) felt sluggish: ~0.55 s at level 1, back to the raw clip at high attack speed (of the attack period)
+    pub const AA_ANIM_FRACTION: f32 = 0.35;
     /// the bolt leaves his demon hand a little before the middle of the swing (FiddleSticks_BA_Cas runs frames 8-19 of 37) (of the attack animation)
     pub const AA_WINDUP_FRACTION: f32 = 0.4;
     /// League plays Melee_Attack1/2 when the target is right next to him: a claw swipe, no bolt (m)
     pub const MELEE_RANGE: f32 = 2.5;
+    /// the Tarnished's movement slows down hard while Bountiful Harvest drains, back to normal when it ends (creator's request) (x Tarnished animation speed)
+    pub const W_SELF_SLOW: f32 = 0.3;
 }

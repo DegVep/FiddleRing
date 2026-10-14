@@ -1,5 +1,5 @@
 //! Fiddlesticks in the Lands Between: reads the Tarnished, the camera and nearby characters each frame, runs his
-//! kit (abilities sheet, numbers from the player's League data), League levelling and mana, and hands the frame to
+//! kit (abilities sheet, numbers from the player's League data), League levelling, and hands the frame to
 //! the renderer. Runs on the game thread from Elden Ring's own task loop.
 
 use crate::anim::{self, Anim};
@@ -134,13 +134,11 @@ pub struct Game {
     xp: f32,
     /// skill points spent in Q W E R (index 1..4), chosen by the player like in League
     ranks: [u32; 5],
-    mana: f32,
     cd: [f32; 5],
     prev_actions: u64,
     prev_keys: [bool; 12],
     last_pos: Option<V3>,
     speed: f32,
-    prev_fp: i32,
     dead: bool,
     damaged: HashMap<usize, i32>,
     cc: Vec<Cc>,
@@ -169,6 +167,10 @@ pub struct Game {
     /// the closest non-player characters this frame (chr id, team, hp, 3D and flat distance), logged when a cast finds no target
     near: Vec<(u32, u8, i32, f32, f32)>,
     no_target_logged: f32,
+    /// the Tarnished is slowed by our Bountiful Harvest channel (restored once when it ends)
+    w_slowed: bool,
+    /// ability power from the Tarnished's rune level, shown in the HUD
+    ap: f32,
     frame: u64,
     hidden_logged: bool,
     dt: f32,
@@ -276,20 +278,18 @@ impl Game {
             log!("TEST mode: level 18, abilities cast by themselves at the nearest enemy");
         }
         log!("champion level {level}, xp {xp:.0}");
-        let mut g = Game {
+        let g = Game {
             c,
             audio,
             anim: Anim::new(),
             level,
             xp,
             ranks,
-            mana: 0.0,
             cd: [0.0; 5],
             prev_actions: 0,
             prev_keys: [false; 12],
             last_pos: None,
             speed: 0.0,
-            prev_fp: -1,
             dead: false,
             damaged: HashMap::new(),
             cc: vec![],
@@ -316,6 +316,8 @@ impl Game {
             seen_teams: HashSet::new(),
             near: Vec::new(),
             no_target_logged: -10.0,
+            w_slowed: false,
+            ap: 0.0,
             frame: 0,
             hidden_logged: false,
             dt: 0.0,
@@ -324,16 +326,11 @@ impl Game {
             last_close: 0.0,
             dbg_last: 0,
         };
-        g.mana = g.max_mana();
         g
     }
 
     fn stat(&self, k: &str) -> f32 {
         self.c.stats.get(k).copied().unwrap_or(0.0)
-    }
-
-    fn max_mana(&self) -> f32 {
-        (self.stat("mana") + self.stat("mana_per_level") * growth(self.level)) * tuning::MANA_SCALE
     }
 
     fn rank(&self, slot: usize) -> u32 {
@@ -401,7 +398,6 @@ impl Game {
             }
             self.level = next.level;
             log!("LEVEL UP {} ({} skill point(s) to spend)", self.level, self.skill_points());
-            self.mana = (self.mana + self.stat("mana_per_level")).min(self.max_mana());
         }
     }
 
@@ -522,6 +518,7 @@ impl Game {
         let key_pressed: Vec<bool> = (0..12).map(|i| keys[i] && !self.prev_keys[i]).collect();
         self.prev_keys = keys;
         let player_level_ap = ap;
+        self.ap = ap;
         let player_orient = player.chr_ins.modules.physics.orientation;
         let locked = player.locked_on_enemy.clone();
         let _ = player;
@@ -593,7 +590,6 @@ impl Game {
             self.anim.play("respawn", true);
             self.sound("vo_respawn");
             self.sound("sfx_respawn");
-            self.mana = self.max_mana();
         }
 
         // movement speed and facing
@@ -609,15 +605,6 @@ impl Game {
         let fwd = q * glam::Vec3::NEG_Z;
         let forward = norm([fwd.x, 0.0, fwd.z]);
 
-        // mana: League regen, and Elden Ring FP gains (flasks, graces) refill the same share of mana
-        let fp = chr_mut(player_ptr).modules.data.fp;
-        let max_fp = chr_mut(player_ptr).modules.data.max_fp.max(1);
-        if self.prev_fp >= 0 && fp > self.prev_fp {
-            self.mana += self.max_mana() * (fp - self.prev_fp) as f32 / max_fp as f32 * tuning::MANA_FLASK_RATIO;
-        }
-        self.prev_fp = fp;
-        let regen = (self.stat("mana_regen") + self.stat("mana_regen_per_level") * growth(self.level)) / 5.0;
-        self.mana = (self.mana + regen * dt).min(self.max_mana());
         for c in self.cd.iter_mut() {
             *c = (*c - dt).max(0.0);
         }
@@ -687,6 +674,11 @@ impl Game {
         self.update_pending(dt, &me, &hostiles, player_level_ap);
         self.update_missiles(dt, &hostiles, player_level_ap);
         self.update_drain(dt, &me, player_ptr, player_level_ap);
+        // Bountiful Harvest: the Tarnished drags their feet while it drains (root motion follows animation speed)
+        if self.drain.is_some() || self.w_slowed {
+            self.w_slowed = self.drain.is_some();
+            chr_mut(player_ptr).modules.behavior.animation_speed = if self.w_slowed { tuning::W_SELF_SLOW } else { 1.0 };
+        }
         self.update_ult(dt, &me, player_ptr, &hostiles, player_level_ap);
         self.update_cc();
 
@@ -723,11 +715,9 @@ impl Game {
                 log!("facing player {:?} camera fwd ({:.2},{:.2},{:.2}) cam pos ({:.1},{:.1},{:.1})", forward, m.2.0, m.2.1, m.2.2, m.3.0, m.3.1, m.3.2);
             }
             log!(
-                "status lvl {} xp {:.0} mana {:.0}/{:.0} hp {} speed {:.1} anim {} hostiles {} cd {:?}",
+                "status lvl {} xp {:.0} hp {} speed {:.1} anim {} hostiles {} cd {:?}",
                 self.level,
                 self.xp,
-                self.mana,
-                self.max_mana(),
                 me.hp,
                 self.speed,
                 self.anim.id(),
@@ -791,11 +781,6 @@ impl Game {
         if rank == 0 || self.cd[slot] > 0.0 || self.pending.is_some() {
             return;
         }
-        let mana = if ab.mana == "none" { 0.0 } else { val(&self.c, slot, "Mana", rank) * tuning::MANA_SCALE };
-        if self.mana < mana {
-            log!("cast {} refused: mana {:.0} < {mana:.0}", ab.id, self.mana);
-            return;
-        }
         let range = match slot {
             0 => self.stat("attack_range"),
             4 => 800.0,
@@ -845,13 +830,9 @@ impl Game {
             _ => (pick(range).map(|t| t.ptr), me.pos),
         };
         let cd = match slot {
-            0 => {
-                let lvl_as = self.stat("attack_speed_per_level") / 100.0 * growth(self.level);
-                1.0 / (self.stat("attack_speed") * (1.0 + lvl_as)).max(0.2)
-            }
+            0 => 1.0 / self.attack_speed(),
             _ => val(&self.c, slot, "CooldownTime", rank),
         };
-        self.mana -= mana;
         self.cd[slot] = cd;
         // basic attack: League's melee swipe when the target is close, otherwise the ranged cast
         let melee = slot == 0 && flat(sub(point, me.pos)) <= tuning::MELEE_RANGE;
@@ -877,7 +858,7 @@ impl Game {
             self.anim.rate = (clip_len / (cd * tuning::AA_ANIM_FRACTION)).clamp(0.25, 1.0);
             windup = (clip_len / self.anim.rate * tuning::AA_WINDUP_FRACTION).max(0.05);
         }
-        log!("CAST {} rank {rank} mana -{mana:.0} cd {cd:.1}s target {}", ab.id, target.is_some());
+        log!("CAST {} rank {rank} cd {cd:.1}s target {}", ab.id, target.is_some());
         if self.test && self.shot_at.is_none() {
             let delay = match slot { 2 => windup + 0.8, 4 => 3.0, _ => windup + 0.15 };
             self.shot_at = Some((format!("{}_{:.0}", ab.id, self.clock), self.clock + delay));
@@ -1217,7 +1198,7 @@ impl Game {
             }
         }
 
-        self.build_hud(&mut scene);
+        self.build_hud(&mut scene, &me);
         if let Some((name, at)) = &self.shot_at {
             if self.clock >= *at {
                 let dir = crate::log::data_dir().join("shots");
@@ -1229,7 +1210,24 @@ impl Game {
         *SCENE.lock().unwrap() = Some(scene);
     }
 
-    fn build_hud(&self, scene: &mut Scene) {
+    fn attack_speed(&self) -> f32 {
+        let lvl_as = self.stat("attack_speed_per_level") / 100.0 * growth(self.level);
+        (self.stat("attack_speed") * (1.0 + lvl_as)).max(0.2)
+    }
+
+    /// The ability being channelled and how far along it is, for the cast bar.
+    fn channel(&self) -> Option<(&'static str, f32)> {
+        if let Some(d) = &self.drain {
+            return Some(("Cosecha abundante", d.t / val(&self.c, 2, "DrainDuration", d.rank).max(0.01)));
+        }
+        match self.ult {
+            Some(Ult::Channel { t, rank, .. }) => Some(("Tormenta de cuervos", t / val(&self.c, 4, "ChannelTime", rank).max(0.01))),
+            Some(Ult::Storm { t, rank, .. }) => Some(("Tormenta de cuervos", 1.0 - t / val(&self.c, 4, "Duration", rank).max(0.01))),
+            None => None,
+        }
+    }
+
+    fn build_hud(&self, scene: &mut Scene, me: &Chr) {
         let rect = |x: f32, y: f32, w: f32, h: f32, color: [f32; 4], tex: &'static str| Sprite {
             tex,
             additive: false,
@@ -1237,55 +1235,140 @@ impl Game {
             uv: quad_uv(),
             color,
         };
+        let out = &mut scene.screen;
         let gold = [0.78, 0.67, 0.43, 1.0];
+        let gold_dim = [0.42, 0.36, 0.24, 1.0];
+        let ink = [0.0, 0.0, 0.0, 0.85];
+        let white = [0.96, 0.94, 0.90, 1.0];
+        // League's bevelled frame: dark rim, gold line, dark gap
+        let frame = |out: &mut Vec<Sprite>, x: f32, y: f32, w: f32, h: f32, line: [f32; 4]| {
+            out.push(rect(x - 4.0, y - 4.0, w + 8.0, h + 8.0, [0.0, 0.0, 0.0, 0.9], "white"));
+            out.push(rect(x - 2.5, y - 2.5, w + 5.0, h + 5.0, line, "white"));
+            out.push(rect(x - 1.0, y - 1.0, w + 2.0, h + 2.0, [0.02, 0.03, 0.04, 1.0], "white"));
+        };
+        // vertical gradient in strips (a sprite carries one colour)
+        let gradient = |out: &mut Vec<Sprite>, x: f32, y: f32, w: f32, h: f32, top: [f32; 4], bottom: [f32; 4]| {
+            let n = 8;
+            for i in 0..n {
+                let t = i as f32 / (n - 1) as f32;
+                let c = [0, 1, 2, 3].map(|k| top[k] + (bottom[k] - top[k]) * t);
+                out.push(rect(x, y + h * i as f32 / n as f32, w, h / n as f32 + 0.5, c, "white"));
+            }
+        };
+        // text with a drop shadow, centred on cx
+        let label = |out: &mut Vec<Sprite>, s: &str, cx: f32, y: f32, size: f32, color: [f32; 4]| {
+            out.extend(font::text(s, cx + 1.5, y + 1.5, size, ink));
+            out.extend(font::text(s, cx, y, size, color));
+        };
+        let left = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| {
+            label(out, s, x + font::width(s, size) * 0.5, y, size, color);
+        };
+        let right = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| {
+            label(out, s, x - font::width(s, size) * 0.5, y, size, color);
+        };
+
         for item in sheet::HUD {
             let (x, y, w, h) = (item.x, item.y, item.w, item.h);
             match item.kind {
                 "rect" => {
-                    scene.screen.push(rect(x - 3.0, y - 3.0, w + 6.0, h + 6.0, gold, "white"));
-                    scene.screen.push(rect(x, y, w, h, [0.03, 0.06, 0.08, 0.92], "white"));
+                    frame(out, x, y, w, h, gold);
+                    gradient(out, x, y, w, h, [0.07, 0.12, 0.14, 0.95], [0.01, 0.03, 0.04, 0.97]);
+                    out.push(rect(x + 12.0, y + 3.0, w - 24.0, 1.0, [gold[0], gold[1], gold[2], 0.35], "white"));
+                }
+                "title" => {
+                    label(out, "FIDDLESTICKS", x, y, h, gold);
+                }
+                "castbar" => {
+                    let Some((name, f)) = self.channel() else { continue };
+                    frame(out, x, y, w, h, gold_dim);
+                    out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.85], "white"));
+                    gradient(out, x, y, w * f.clamp(0.0, 1.0), h, [0.72, 0.35, 0.95, 1.0], [0.36, 0.12, 0.55, 1.0]);
+                    label(out, name, x + w * 0.5, y + 2.0, h - 4.0, white);
                 }
                 "image" => {
                     let slot = item.binding.strip_prefix("ability:").and_then(|a| SLOTS.iter().position(|s| *s == a));
-                    scene.screen.push(rect(x - 2.0, y - 2.0, w + 4.0, h + 4.0, gold, "white"));
-                    let rank = slot.map(|s| self.rank(s)).unwrap_or(1);
-                    let dim = if rank == 0 { 0.3 } else { 1.0 };
-                    scene.screen.push(rect(x, y, w, h, [dim, dim, dim, 1.0], item.source));
-                    if let Some(s) = slot {
-                        let ab = ability(s);
-                        let cd = self.cd[s];
-                        let full = if rank > 0 { val(&self.c, s, "CooldownTime", rank).max(0.01) } else { 1.0 };
-                        if cd > 0.0 {
-                            let f = (cd / full).clamp(0.0, 1.0);
-                            scene.screen.push(rect(x, y, w, h * f, [0.0, 0.0, 0.0, 0.65], "white"));
-                            scene.screen.extend(font::text(&format!("{}", cd.ceil() as u32), x + w * 0.5, y + h * 0.25, h * 0.5, [1.0, 1.0, 1.0, 1.0]));
-                        } else if rank > 0 && self.mana < val(&self.c, s, "Mana", rank) * tuning::MANA_SCALE {
-                            scene.screen.push(rect(x, y, w, h, [0.1, 0.2, 0.6, 0.55], "white"));
-                        }
-                        // rank pips
-                        for r in 0..ab.max_rank {
-                            let pw = (w - 4.0) / ab.max_rank as f32;
-                            let col = if r < rank { [0.95, 0.85, 0.35, 1.0] } else { [0.15, 0.15, 0.15, 1.0] };
-                            scene.screen.push(rect(x + 2.0 + r as f32 * pw, y + h + 4.0, pw - 3.0, 5.0, col, "white"));
-                        }
-                        // key hint
-                        let hint = ["", "1", "2", "3", "4"][s];
-                        scene.screen.extend(font::text(hint, x + 9.0, y + 2.0, 16.0, [1.0, 1.0, 1.0, 0.85]));
+                    let Some(s) = slot else {
+                        // portrait
+                        frame(out, x, y, w, h, gold);
+                        out.push(rect(x, y, w, h, [1.0, 1.0, 1.0, 1.0], item.source));
+                        continue;
+                    };
+                    let ab = ability(s);
+                    let rank = self.rank(s);
+                    let cd = self.cd[s];
+                    let ready = rank > 0 && cd <= 0.0;
+                    let line = if ready { gold } else if rank > 0 { gold_dim } else { [0.25, 0.25, 0.25, 1.0] };
+                    frame(out, x, y, w, h, line);
+                    let dim = if rank == 0 { 0.25 } else { 1.0 };
+                    out.push(rect(x, y, w, h, [dim, dim, dim, 1.0], item.source));
+                    if cd > 0.0 && rank > 0 {
+                        // League's sweep, as a dark curtain that lifts, with a bright edge
+                        let full = val(&self.c, s, "CooldownTime", rank).max(0.01);
+                        let f = (cd / full).clamp(0.0, 1.0);
+                        out.push(rect(x, y, w, h * f, [0.0, 0.0, 0.0, 0.7], "white"));
+                        out.push(rect(x, y + h * f - 1.0, w, 2.0, [1.0, 0.9, 0.6, 0.8], "white"));
+                        let txt = if cd < 1.0 { format!("{cd:.1}") } else { format!("{}", cd.ceil() as u32) };
+                        label(out, &txt, x + w * 0.5, y + h * 0.27, h * 0.46, white);
                     }
+                    // key badge
+                    out.push(rect(x - 1.0, y + h - 17.0, 17.0, 18.0, [0.0, 0.0, 0.0, 0.85], "white"));
+                    label(out, ["", "1", "2", "3", "4"][s], x + 7.5, y + h - 16.0, 15.0, [0.9, 0.85, 0.7, 1.0]);
+                    // rank pips
+                    let pw = (w + 4.0) / ab.max_rank as f32;
+                    for r in 0..ab.max_rank {
+                        let col = if r < rank { [0.95, 0.82, 0.35, 1.0] } else { [0.12, 0.12, 0.12, 1.0] };
+                        out.push(rect(x - 2.0 + r as f32 * pw, y + h + 5.0, pw - 3.0, 4.0, col, "white"));
+                    }
+                    label(out, ab.name, x + w * 0.5, y + h + 12.0, 13.0, if rank > 0 { [0.85, 0.80, 0.68, 1.0] } else { [0.45, 0.45, 0.45, 1.0] });
                 }
                 "bar" => {
-                    let (frac, col) = match item.binding {
-                        "mana_fraction" => (self.mana / self.max_mana().max(1.0), [0.18, 0.45, 0.95, 1.0]),
-                        _ => {
-                            let lo = sheet::LEVELS[(self.level - 1) as usize].xp_total;
-                            let hi = sheet::LEVELS.get(self.level as usize).map(|l| l.xp_total).unwrap_or(lo + 1.0);
-                            (if self.level >= 18 { 1.0 } else { (self.xp - lo) / (hi - lo).max(1.0) }, [0.62, 0.35, 0.85, 1.0])
+                    out.push(rect(x - 2.0, y - 2.0, w + 4.0, h + 4.0, [0.0, 0.0, 0.0, 0.9], "white"));
+                    out.push(rect(x - 1.0, y - 1.0, w + 2.0, h + 2.0, gold_dim, "white"));
+                    out.push(rect(x, y, w, h, [0.02, 0.02, 0.02, 1.0], "white"));
+                    if item.binding == "hp_fraction" {
+                        let frac = (me.hp.max(0) as f32 / me.max_hp.max(1) as f32).clamp(0.0, 1.0);
+                        let (top, bottom) = if frac > 0.3 { ([0.35, 0.80, 0.30, 1.0], [0.10, 0.42, 0.10, 1.0]) } else { ([0.90, 0.30, 0.22, 1.0], [0.50, 0.08, 0.06, 1.0]) };
+                        gradient(out, x, y, w * frac, h, top, bottom);
+                        // League's ticks: thin every 100 HP, bold every 1000
+                        let step = w * 100.0 / me.max_hp.max(1) as f32;
+                        if step > 3.0 {
+                            let mut i = 1;
+                            while step * (i as f32) < w * frac {
+                                let bold = i % 10 == 0;
+                                out.push(rect(x + step * i as f32, y, if bold { 2.0 } else { 1.0 }, if bold { h } else { h * 0.45 }, [0.0, 0.0, 0.0, 0.6], "white"));
+                                i += 1;
+                            }
                         }
-                    };
-                    scene.screen.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.8], "white"));
-                    scene.screen.push(rect(x, y, w * frac.clamp(0.0, 1.0), h, col, "white"));
-                    if item.binding == "mana_fraction" {
-                        scene.screen.extend(font::text(&format!("{}/{}", self.mana as u32, self.max_mana() as u32), x + w * 0.5, y + 1.0, h - 2.0, [1.0, 1.0, 1.0, 1.0]));
+                        label(out, &format!("{} / {}", me.hp.max(0), me.max_hp), x + w * 0.5, y + 2.0, h - 4.0, white);
+                    } else {
+                        let lo = sheet::LEVELS[(self.level - 1) as usize].xp_total;
+                        let hi = sheet::LEVELS.get(self.level as usize).map(|l| l.xp_total).unwrap_or(lo + 1.0);
+                        let frac = if self.level >= 18 { 1.0 } else { (self.xp - lo) / (hi - lo).max(1.0) };
+                        gradient(out, x, y, w * frac.clamp(0.0, 1.0), h, [0.75, 0.50, 0.98, 1.0], [0.40, 0.18, 0.62, 1.0]);
+                    }
+                }
+                "text" => {
+                    frame(out, x, y, w, h, gold);
+                    out.push(rect(x, y, w, h, [0.03, 0.05, 0.07, 1.0], "white"));
+                    label(out, &format!("{}", self.level), x + w * 0.5, y + 4.0, h - 8.0, white);
+                }
+                "stats" => {
+                    frame(out, x, y, w, h, gold_dim);
+                    out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.45], "white"));
+                    let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
+                    let rows = [
+                        ("Daño", format!("{}", ad.round() as i32), [0.95, 0.62, 0.30, 1.0]),
+                        ("Poder", format!("{}", self.ap.round() as i32), [0.62, 0.55, 0.98, 1.0]),
+                        ("Vel. at.", format!("{:.2}", self.attack_speed()), [0.95, 0.85, 0.40, 1.0]),
+                        ("Alcance", format!("{}", self.stat("attack_range").round() as i32), [0.60, 0.85, 0.95, 1.0]),
+                        ("Bajas", format!("{}", self.kills), [0.90, 0.40, 0.40, 1.0]),
+                    ];
+                    let rh = h / rows.len() as f32;
+                    for (i, (k, v, col)) in rows.iter().enumerate() {
+                        let ry = y + rh * i as f32 + (rh - 15.0) * 0.5;
+                        out.push(rect(x + 6.0, ry + 4.0, 6.0, 6.0, *col, "white"));
+                        left(out, k, x + 17.0, ry, 15.0, [0.78, 0.75, 0.68, 1.0]);
+                        right(out, v, x + w - 7.0, ry, 15.0, white);
                     }
                 }
                 "levelup" => {
@@ -1296,15 +1379,10 @@ impl Game {
                         }
                         let (bx, by) = (slot_item.x + x, slot_item.y + y);
                         let pulse = 0.75 + 0.25 * (self.clock * 5.0).sin();
-                        scene.screen.push(rect(bx - 2.0, by - 2.0, w + 4.0, h + 4.0, [gold[0] * pulse, gold[1] * pulse, gold[2] * pulse, 1.0], "white"));
-                        scene.screen.push(rect(bx, by, w, h, [0.05, 0.12, 0.10, 0.95], "white"));
-                        scene.screen.extend(font::text("+", bx + w * 0.5, by + 1.0, h - 2.0, [0.95, 0.85, 0.35, 1.0]));
+                        out.push(rect(bx - 2.0, by - 2.0, w + 4.0, h + 4.0, [gold[0] * pulse, gold[1] * pulse, gold[2] * pulse, 1.0], "white"));
+                        out.push(rect(bx, by, w, h, [0.05, 0.12, 0.10, 0.95], "white"));
+                        label(out, "+", bx + w * 0.5, by + 1.0, h - 2.0, [0.95, 0.85, 0.35, 1.0]);
                     }
-                }
-                "text" => {
-                    scene.screen.push(rect(x - 2.0, y - 2.0, w + 4.0, h + 4.0, gold, "white"));
-                    scene.screen.push(rect(x, y, w, h, [0.02, 0.04, 0.05, 1.0], "white"));
-                    scene.screen.extend(font::text(&format!("{}", self.level), x + w * 0.5, y + 3.0, h - 6.0, [1.0, 1.0, 1.0, 1.0]));
                 }
                 _ => {}
             }
