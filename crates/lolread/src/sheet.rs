@@ -326,8 +326,8 @@ pub mod tuning {
     pub const E_SLOW_DURATION: f32 = 1.25;
     /// Terrify stuns (creator: no fleeing): the enemy freezes in place, no actions or movement, until it ends (x animation speed)
     pub const FEAR_ANIM_SPEED: f32 = 0.0;
-    /// League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game (x League's mix)
-    pub const AUDIO_VOLUME: f32 = 0.3;
+    /// League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game; 0.3 -> 0.22 (creator: a bit lower) (x League's mix)
+    pub const AUDIO_VOLUME: f32 = 0.22;
     /// Attack1 is 0.33 s raw (too snappy) and 0.75 of the 1.6 s period (1.2 s) felt sluggish: ~0.55 s at level 1, back to the raw clip at high attack speed (of the attack period)
     pub const AA_ANIM_FRACTION: f32 = 0.35;
     /// the bolt leaves his demon hand a little before the middle of the swing (FiddleSticks_BA_Cas runs frames 8-19 of 37) (of the attack animation)

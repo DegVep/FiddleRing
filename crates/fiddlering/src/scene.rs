@@ -67,6 +67,9 @@ pub struct ModelDraw {
 
 pub static SCENE: Mutex<Option<Scene>> = Mutex::new(None);
 
+/// The back buffer's width / height (f32 bits), set by the renderer: the game thread projects to the HUD frame.
+pub static ASPECT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x3FE3_8E39); // 16/9
+
 pub fn quad_uv() -> [[f32; 2]; 4] {
     [[0., 0.], [1., 0.], [1., 1.], [0., 1.]]
 }

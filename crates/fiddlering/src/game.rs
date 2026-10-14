@@ -144,6 +144,8 @@ pub struct Game {
     save_key: Option<String>,
     /// hostiles near him this frame, for their health bars
     hostile_ptrs: Vec<usize>,
+    /// health bar damage trails: (shown share, last hit clock) per character
+    bar_trails: HashMap<usize, (f32, f32)>,
     /// ability power this frame (runes + items), for the stats box
     ap_total: f32,
     /// League items owned (ids), offered three at a time when a boss dies
@@ -359,6 +361,7 @@ impl Game {
             menu_keys: [false; 6],
             save_key: None,
             hostile_ptrs: vec![],
+            bar_trails: HashMap::new(),
             ap_total: 0.0,
             items: vec![],
             offer: None,
@@ -603,18 +606,67 @@ impl Game {
         }
     }
 
-    /// Elden Ring's HUD is hidden (it would also hide enemies' health), so: League-style bars over wounded
-    /// enemies near him, and one wide bar at the top for a boss.
-    fn draw_health_bars(&self, me: &Chr, view: &crate::fx::View, scene: &mut Scene) {
+    /// Elden Ring's HUD is hidden (it would also hide enemies' health), so the mod draws League-style health bars:
+    /// over each wounded enemy near him (screen space, constant size, fading with distance) and a wide one at the
+    /// top for a boss. Lost health lingers in a light damage trail that drains after a moment, like League.
+    fn draw_health_bars(&mut self, me: &Chr, cam: &M4, fov: f32, near: f32, far: f32, scene: &mut Scene) {
         if tuning::HIDE_ER_BARS <= 0.5 {
             return;
         }
-        let bar = |c: V3, w: f32, h: f32, color: [f32; 4]| -> Sprite {
-            let r = mul(view.right, w * 0.5);
-            let u = mul(view.up, h * 0.5);
-            Sprite { tex: "white", additive: false, pos: [add(sub(c, r), u), add(add(c, r), u), sub(add(c, r), u), sub(sub(c, r), u)], uv: quad_uv(), color }
+        let aspect = f32::from_bits(crate::scene::ASPECT.load(std::sync::atomic::Ordering::Relaxed)).clamp(0.5, 4.0);
+        let view_proj = lolread::math::mul(&lolread::math::inverse(cam), &crate::gfx::perspective(fov, aspect, near.max(0.05), far.max(100.0)));
+        // world -> HUD reference frame (1080 high, centred)
+        let to_screen = |p: V3| -> Option<(f32, f32)> {
+            let v = [p[0], p[1], p[2], 1.0];
+            let c: Vec<f32> = (0..4).map(|k| (0..4).map(|r| v[r] * view_proj[r * 4 + k]).sum()).collect();
+            if c[3] <= 0.1 {
+                return None;
+            }
+            let (nx, ny) = (c[0] / c[3], c[1] / c[3]);
+            if nx.abs() > 1.1 || ny.abs() > 1.1 {
+                return None;
+            }
+            Some((960.0 + nx * 540.0 * aspect, 540.0 - ny * 540.0))
         };
-        let mut boss: Option<Chr> = None;
+        let rect = |x: f32, y: f32, w: f32, h: f32, color: [f32; 4]| Sprite {
+            tex: "white",
+            additive: false,
+            pos: [[x, y, 0.], [x + w, y, 0.], [x + w, y + h, 0.], [x, y + h, 0.]],
+            uv: quad_uv(),
+            color,
+        };
+        let dt = self.dt;
+        let clock = self.clock;
+        // one bar: rim, dark well, damage trail, gradient fill, top sheen, 10% ticks
+        let draw_bar = |out: &mut Vec<Sprite>, trails: &mut HashMap<usize, (f32, f32)>, key: usize, x: f32, y: f32, w: f32, h: f32, frac: f32, alpha: f32| {
+            let tr = trails.entry(key).or_insert((frac, clock));
+            if frac >= tr.0 {
+                *tr = (frac, clock);
+            } else if clock - tr.1 > 0.45 {
+                // the trail waits a moment after a hit, then drains
+                tr.0 = (tr.0 - dt * 0.6).max(frac);
+            }
+            let trail = tr.0;
+            let a = |c: [f32; 4]| [c[0], c[1], c[2], c[3] * alpha];
+            out.push(rect(x - 2.0, y - 2.0, w + 4.0, h + 4.0, a([0.0, 0.0, 0.0, 0.9])));
+            out.push(rect(x - 1.0, y - 1.0, w + 2.0, h + 2.0, a([0.36, 0.30, 0.20, 1.0])));
+            out.push(rect(x, y, w, h, a([0.06, 0.03, 0.03, 0.95])));
+            out.push(rect(x, y, w * trail, h, a([0.95, 0.80, 0.55, 0.85])));
+            let n = 5;
+            for i in 0..n {
+                let t = i as f32 / (n - 1) as f32;
+                out.push(rect(x, y + h * i as f32 / n as f32, w * frac, h / n as f32 + 0.5, a([0.95 - 0.40 * t, 0.22 - 0.12 * t, 0.18 - 0.10 * t, 1.0])));
+            }
+            out.push(rect(x, y, w * frac, (h * 0.18).max(1.0), a([1.0, 0.75, 0.70, 0.55])));
+            for i in 1..10 {
+                let tx = x + w * i as f32 / 10.0;
+                if tx < x + w * frac {
+                    out.push(rect(tx, y, 1.0, h * 0.55, a([0.0, 0.0, 0.0, 0.55])));
+                }
+            }
+        };
+        let mut trails = std::mem::take(&mut self.bar_trails);
+        let mut boss: Option<(usize, Chr)> = None;
         for &p in &self.hostile_ptrs {
             if !self.alive_ptrs.contains(&p) {
                 continue;
@@ -624,35 +676,45 @@ impl Game {
                 continue;
             }
             if self.boss_ptrs.contains(&p) {
-                boss = Some(ch);
+                boss = Some((p, ch));
                 continue;
             }
-            if ch.hp >= ch.max_hp || len(sub(ch.pos, me.pos)) > 40.0 {
+            let dist = len(sub(ch.pos, me.pos));
+            if ch.hp >= ch.max_hp || dist > 40.0 {
                 continue;
             }
+            let Some((sx, sy)) = to_screen(add(ch.pos, [0.0, ch.height + 0.3, 0.0])) else { continue };
+            let alpha = (1.0 - (dist - 25.0) / 15.0).clamp(0.0, 1.0);
             let frac = (ch.hp as f32 / ch.max_hp as f32).clamp(0.0, 1.0);
-            let (w, h) = (1.1, 0.11);
-            let top = add(ch.pos, [0.0, ch.height + 0.35, 0.0]);
-            scene.world.push(bar(top, w + 0.05, h + 0.05, [0.0, 0.0, 0.0, 0.8]));
-            let left = sub(top, mul(view.right, w * 0.5));
-            scene.world.push(bar(add(left, mul(view.right, w * frac * 0.5)), w * frac, h, [0.86, 0.16, 0.12, 1.0]));
+            let (w, h) = (118.0, 11.0);
+            draw_bar(&mut scene.screen, &mut trails, p, sx - w * 0.5, sy - h, w, h, frac, alpha);
         }
-        if let Some(b) = boss {
+        if let Some((p, b)) = boss {
             let frac = (b.hp as f32 / b.max_hp as f32).clamp(0.0, 1.0);
-            let (x, y, w, h) = (560.0, 64.0, 800.0, 16.0);
-            let rect = |x: f32, y: f32, w: f32, h: f32, color: [f32; 4]| Sprite {
-                tex: "white",
-                additive: false,
-                pos: [[x, y, 0.], [x + w, y, 0.], [x + w, y + h, 0.], [x, y + h, 0.]],
-                uv: quad_uv(),
-                color,
-            };
-            scene.screen.push(rect(x - 3.0, y - 3.0, w + 6.0, h + 6.0, [0.0, 0.0, 0.0, 0.85]));
-            scene.screen.push(rect(x - 1.5, y - 1.5, w + 3.0, h + 3.0, [0.78, 0.67, 0.43, 1.0]));
-            scene.screen.push(rect(x, y, w, h, [0.05, 0.02, 0.02, 1.0]));
-            scene.screen.push(rect(x, y, w * frac, h, [0.80, 0.12, 0.10, 1.0]));
-            scene.screen.extend(font::text(&format!("{} / {}", b.hp, b.max_hp), 960.0, y + 1.0, h - 2.0, [1.0, 1.0, 1.0, 1.0]));
+            let (x, y, w, h) = (510.0, 70.0, 900.0, 18.0);
+            // gold double frame and diamond end caps
+            scene.screen.push(rect(x - 7.0, y - 7.0, w + 14.0, h + 14.0, [0.0, 0.0, 0.0, 0.75]));
+            scene.screen.push(rect(x - 5.0, y - 5.0, w + 10.0, h + 10.0, [0.78, 0.67, 0.43, 1.0]));
+            scene.screen.push(rect(x - 3.5, y - 3.5, w + 7.0, h + 7.0, [0.05, 0.05, 0.06, 1.0]));
+            for cx in [x - 13.0, x + w + 13.0] {
+                let s = 9.0;
+                let cy = y + h * 0.5;
+                scene.screen.push(Sprite {
+                    tex: "white",
+                    additive: false,
+                    pos: [[cx, cy - s, 0.], [cx + s, cy, 0.], [cx, cy + s, 0.], [cx - s, cy, 0.]],
+                    uv: quad_uv(),
+                    color: [0.85, 0.72, 0.45, 1.0],
+                });
+            }
+            draw_bar(&mut scene.screen, &mut trails, p, x, y, w, h, frac, 1.0);
+            let txt = format!("{} / {}", b.hp, b.max_hp);
+            scene.screen.extend(font::text(&txt, 961.5, y + 2.5, h - 3.0, [0.0, 0.0, 0.0, 0.9]));
+            scene.screen.extend(font::text(&txt, 960.0, y + 1.0, h - 3.0, [1.0, 0.97, 0.92, 1.0]));
         }
+        let alive = &self.alive_ptrs;
+        trails.retain(|k, _| alive.contains(k));
+        self.bar_trails = trails;
     }
 
     /// Runs after Elden Ring's MenuMan and before Scaleform draws: its HUD is hidden (HideAll; writing at DrawBegin
@@ -1624,7 +1686,7 @@ impl Game {
                 s.color = [c[0], c[1], c[2], s.color[3]];
             }
         }
-        self.draw_health_bars(&me, &view, &mut scene);
+        self.draw_health_bars(&me, &cam_m, pc.fov, pc.near_plane, pc.far_plane, &mut scene);
         // talking to someone (er_menus action hud): no HUD over the dialogue, nor between its lines
         if sheet::HUD_HIDE_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
             self.hud_hidden_until = self.clock + 1.5;

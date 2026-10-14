@@ -100,9 +100,9 @@
     },
     {
       "id": "audio_volume",
-      "value": 0.3,
+      "value": 0.22,
       "unit": "x League's mix",
-      "why": "League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game"
+      "why": "League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game; 0.3 -> 0.22 (creator: a bit lower)"
     },
     {
       "id": "aa_anim_fraction",

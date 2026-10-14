@@ -818,6 +818,7 @@ impl Renderer {
 
             let view = math::inverse(&scene.cam);
             let aspect = w / h.max(1.0);
+            crate::scene::ASPECT.store(aspect.to_bits(), std::sync::atomic::Ordering::Relaxed);
             let proj = perspective(scene.fov, aspect, scene.near.max(0.05), scene.far.max(100.0));
             let view_proj = math::mul(&view, &proj);
             let upload_gpu = slot.upload.GetGPUVirtualAddress();
@@ -1012,7 +1013,7 @@ impl Renderer {
 }
 
 /// Left-handed perspective, depth 0..1 (row-vector convention).
-fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> M4 {
+pub(crate) fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> M4 {
     let ys = 1.0 / (fov_y * 0.5).tan();
     let xs = ys / aspect;
     let q = far / (far - near);
