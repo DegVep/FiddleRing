@@ -527,6 +527,13 @@ impl Game {
             self.cd = [0.0; 5];
         }
         log!("SAVE {key}: champion level {}, xp {:.0}", self.level, self.xp);
+        // an owed boss reward (pending_offer.txt): the choice opens once this character is in
+        let owed = crate::log::data_dir().join("pending_offer.txt");
+        if owed.exists() {
+            let _ = std::fs::remove_file(&owed);
+            self.boss_died = true;
+            log!("owed boss reward: the item choice opens");
+        }
         self.save_key = Some(key);
         self.dirty = true;
         self.save();
