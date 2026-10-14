@@ -136,6 +136,8 @@ struct Instance {
     age: f32,
     max_age: f32,
     stopped: bool,
+    /// destroyed (its missile landed, its target went, the game stopped it): particles got their linger
+    killed: bool,
     ems: Vec<EmitterState>,
     /// fly: start point and progress
     fly_from: V3,
@@ -196,6 +198,7 @@ impl Vfx {
             age: 0.0,
             max_age,
             stopped: false,
+            killed: false,
             ems: s.emitters.iter().map(|_| EmitterState { acc: 0.0, single_done: false, parts: vec![] }).collect(),
             fly_from: frame.pos,
         });
@@ -247,6 +250,15 @@ impl Vfx {
             }
             if inst.age > inst.max_age {
                 inst.stopped = true;
+            }
+            if inst.stopped && !inst.killed {
+                // like League destroying an effect: each particle lives on only for its emitter's linger
+                inst.killed = true;
+                for (em, st) in sys.emitters.iter().zip(inst.ems.iter_mut()) {
+                    for p in st.parts.iter_mut() {
+                        p.life = p.life.min(p.age + em.linger.max(0.0)).max(p.age + 0.01);
+                    }
+                }
             }
             let cx = Ctx { id: inst.id, frame: inst.frame, unit: inst.unit, age: inst.age, max_age: inst.max_age, stopped: inst.stopped };
             for (ei, (em, st)) in sys.emitters.iter().zip(inst.ems.iter_mut()).enumerate() {
