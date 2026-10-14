@@ -142,6 +142,8 @@ pub struct Game {
     menu_keys: [bool; 6],
     /// the Elden Ring character whose progress is loaded (save slot + name)
     save_key: Option<String>,
+    /// ability power this frame (runes + items), for the stats box
+    ap_total: f32,
     /// League items owned (ids), offered three at a time when a boss dies
     items: Vec<u32>,
     offer: Option<([u32; 3], usize)>,
@@ -354,6 +356,7 @@ impl Game {
             skin_note: None,
             menu_keys: [false; 6],
             save_key: None,
+            ap_total: 0.0,
             items: vec![],
             offer: None,
             inv_open: None,
@@ -671,6 +674,7 @@ impl Game {
         let rune_ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
         let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap).sum();
         let ap = (rune_ap + item_ap) * (1.0 + self.item_effect("ap_mult"));
+        self.ap_total = ap;
 
         // hide the Tarnished under Fiddlesticks
         player.chr_ins.base_transparency = 0.0;
@@ -1902,6 +1906,40 @@ impl Game {
                     frame(out, x, y, w, h, gold);
                     out.push(rect(x, y, w, h, [0.03, 0.05, 0.07, 1.0], "white"));
                     label(out, &format!("{}", self.level), x + w * 0.5, y + 4.0, h - 8.0, white);
+                }
+                "stats" => {
+                    // League's stat box: what his kit uses right now
+                    frame(out, x, y, w, h, gold_dim);
+                    out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.55], "white"));
+                    let owned: Vec<&lolread::cache::ItemInfo> = self.items.iter().filter_map(|&i| self.item_info(i)).collect();
+                    let haste: f32 = owned.iter().map(|i| i.haste).sum();
+                    let (mut pen, mut pen_pct) = (0.0f32, 0.0f32);
+                    for line in owned.iter().flat_map(|i| i.stat_lines.iter()).filter(|l| l.contains("penetración mágica")) {
+                        let n = line.split_whitespace().next().unwrap_or("0");
+                        let v: f32 = n.trim_end_matches('%').parse().unwrap_or(0.0);
+                        if n.ends_with('%') { pen_pct += v } else { pen += v }
+                    }
+                    let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
+                    let pen_txt = match (pen > 0.0, pen_pct > 0.0) {
+                        (true, true) => format!("{pen:.0} | {pen_pct:.0}%"),
+                        (false, true) => format!("{pen_pct:.0}%"),
+                        _ => format!("{pen:.0}"),
+                    };
+                    let rows = [
+                        ("Daño de ataque", format!("{ad:.0}"), [0.95, 0.62, 0.30, 1.0]),
+                        ("Poder de habilidad", format!("{:.0}", self.ap_total), [0.62, 0.55, 0.98, 1.0]),
+                        ("Vel. de ataque", format!("{:.2}", self.attack_speed()), [0.95, 0.85, 0.40, 1.0]),
+                        ("Vel. de habilidad", format!("{haste:.0}"), [0.55, 0.85, 0.95, 1.0]),
+                        ("Pen. mágica", pen_txt, [0.80, 0.45, 0.95, 1.0]),
+                        ("Alcance", format!("{:.0}", self.stat("attack_range")), [0.75, 0.75, 0.70, 1.0]),
+                    ];
+                    let rh = h / rows.len() as f32;
+                    for (i, (k, v, col)) in rows.iter().enumerate() {
+                        let ry = y + rh * i as f32 + (rh - 13.0) * 0.5;
+                        out.push(rect(x + 6.0, ry + 4.0, 5.0, 5.0, *col, "white"));
+                        label(out, k, x + 15.0 + font::width(k, 13.0) * 0.5, ry, 13.0, [0.78, 0.75, 0.68, 1.0]);
+                        label(out, v, x + w - 6.0 - font::width(v, 13.0) * 0.5, ry, 13.0, white);
+                    }
                 }
                 "levelup" => {
                     for slot_item in sheet::HUD.iter().filter(|h| h.binding.starts_with("ability:")) {

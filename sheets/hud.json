@@ -1,6 +1,6 @@
 {
   "sheet": "hud",
-  "doc": "League-style HUD, bottom centre. Coordinates in a 1920x1080 reference frame, scaled to the game's back buffer. source = league_assets id or computed. kinds: rect = framed panel; image = portrait or ability slot (cooldown sweep, key, rank pips, name; W stays dark until an enemy is in its range); bar = xp or health (the Tarnished's Elden Ring HP); text = level badge; title = champion name; castbar = Bountiful Harvest or Crowstorm progress, only while one runs; levelup = League's level-up button drawn above every ability slot that can take a skill point (x, y offset from the slot). items = the League items owned (3x2 slots, F3 opens their details).",
+  "doc": "League-style HUD, bottom centre. Coordinates in a 1920x1080 reference frame, scaled to the game's back buffer. source = league_assets id or computed. kinds: rect = framed panel; image = portrait or ability slot (cooldown sweep, key, rank pips, name; W stays dark until an enemy is in its range); bar = xp or health (the Tarnished's Elden Ring HP); text = level badge; title = champion name; castbar = Bountiful Harvest or Crowstorm progress, only while one runs; levelup = League's level-up button drawn above every ability slot that can take a skill point (x, y offset from the slot). items = the League items owned (3x2 slots, F3 opens their details). stats = League-style stat box left of the portrait (AD, AP, attack speed, ability haste, magic penetration, range).",
   "columns": [
     "id",
     "kind",
@@ -131,6 +131,16 @@
       "w": 104,
       "h": 70,
       "binding": "items"
+    },
+    {
+      "id": "stats",
+      "kind": "stats",
+      "source": "computed",
+      "x": 450,
+      "y": 940,
+      "w": 180,
+      "h": 124,
+      "binding": "champion_stats"
     },
     {
       "id": "level_up",

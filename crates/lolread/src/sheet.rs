@@ -137,6 +137,7 @@ pub const HUD: &[HudItem] = &[
     HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1069.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
     HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 781.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
     HudItem { id: "items", kind: "items", source: "computed", x: 1145.0, y: 946.0, w: 104.0, h: 70.0, binding: "items" },
+    HudItem { id: "stats", kind: "stats", source: "computed", x: 450.0, y: 940.0, w: 180.0, h: 124.0, binding: "champion_stats" },
     HudItem { id: "level_up", kind: "levelup", source: "computed", x: 6.0, y: -32.0, w: 48.0, h: 26.0, binding: "abilities" },
 ];
 
