@@ -94,9 +94,9 @@
     },
     {
       "id": "fear_anim_speed",
-      "value": 0.35,
+      "value": 0.0,
       "unit": "x animation speed",
-      "why": "Elden Ring AI cannot be made to flee: fear freezes the enemy's actions and slows its animation instead"
+      "why": "Terrify stuns (creator: no fleeing): the enemy freezes in place, no actions or movement, until it ends"
     },
     {
       "id": "audio_volume",
@@ -133,12 +133,6 @@
       "value": 0.5,
       "unit": "x",
       "why": "Reap's League damage (with the AP the rune level gives) one-shot the early guards; the creator found it too strong"
-    },
-    {
-      "id": "fear_flee_speed",
-      "value": 3.5,
-      "unit": "m/s",
-      "why": "Terrify makes the target run away from Fiddlesticks like in League (pushed away each frame, facing away)"
     },
     {
       "id": "fear_icon_size",

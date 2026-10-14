@@ -681,7 +681,7 @@ impl Game {
             chr_mut(player_ptr).modules.behavior.animation_speed = if self.w_slowed { tuning::W_SELF_SLOW } else { 1.0 };
         }
         self.update_ult(dt, &me, player_ptr, &hostiles, player_level_ap);
-        self.update_cc(me.pos);
+        self.update_cc();
 
         // locomotion when no one-shot is playing
         let id = self.anim.id();
@@ -1087,8 +1087,8 @@ impl Game {
         };
     }
 
-    fn update_cc(&mut self, from: V3) {
-        // Elden Ring has no fear/silence/slow statuses we can give: freeze actions and slow animation instead
+    fn update_cc(&mut self) {
+        // Elden Ring has no fear/silence/slow statuses we can give: Terrify stuns (frozen animation, no actions or movement), silence blocks actions, slow slows animation
         let clock = self.clock;
         let mut state: HashMap<usize, (bool, bool, f32)> = HashMap::new();
         for c in &self.cc {
@@ -1102,25 +1102,14 @@ impl Game {
         let dt = self.dt;
         for (&p, &(fear, silence, slow)) in &state {
             let c = chr_mut(p);
+            // the dead play their death at full speed
+            let fear = fear && c.modules.data.hp > 0;
             if fear {
                 let ch = read_chr(c);
                 self.fx.stream("q_fear", "feared", p, add(ch.pos, [0.0, ch.height + 0.3, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
             }
             c.debug_flags.set_disabled_secondary_actions(fear || silence);
-            if fear {
-                // flee: step away from Fiddlesticks and turn their back on him (ER characters face their -Z)
-                let ph = &mut c.modules.physics;
-                let away = norm([ph.position.0 - from[0], 0.0, ph.position.2 - from[2]]);
-                let step = tuning::FEAR_FLEE_SPEED * dt;
-                ph.position.0 += away[0] * step;
-                ph.position.2 += away[2] * step;
-                ph.chr_proxy_pos_update_requested = true;
-                let half = (-away[0]).atan2(-away[2]) * 0.5;
-                ph.orientation.1 = half.sin();
-                ph.orientation.0 = 0.0;
-                ph.orientation.2 = 0.0;
-                ph.orientation.3 = half.cos();
-            }
+            c.debug_flags.set_disabled_movement(fear);
             let speed = if fear { tuning::FEAR_ANIM_SPEED } else { 1.0 - slow.clamp(0.0, 0.9) };
             c.modules.behavior.animation_speed = speed;
         }

@@ -227,8 +227,8 @@ pub mod tuning {
     pub const MODEL_MIRROR_X: f32 = 1.0;
     /// League's Reap slow lasts 1.25 s (tooltip); the spell data only has the silence duration (s)
     pub const E_SLOW_DURATION: f32 = 1.25;
-    /// Elden Ring AI cannot be made to flee: fear freezes the enemy's actions and slows its animation instead (x animation speed)
-    pub const FEAR_ANIM_SPEED: f32 = 0.35;
+    /// Terrify stuns (creator: no fleeing): the enemy freezes in place, no actions or movement, until it ends (x animation speed)
+    pub const FEAR_ANIM_SPEED: f32 = 0.0;
     /// League's lines are mastered far louder than Elden Ring's mix: 0.8 was much too loud in game (x League's mix)
     pub const AUDIO_VOLUME: f32 = 0.3;
     /// Attack1 is 0.33 s raw (too snappy) and 0.75 of the 1.6 s period (1.2 s) felt sluggish: ~0.55 s at level 1, back to the raw clip at high attack speed (of the attack period)
@@ -241,8 +241,6 @@ pub mod tuning {
     pub const W_SELF_SLOW: f32 = 0.3;
     /// Reap's League damage (with the AP the rune level gives) one-shot the early guards; the creator found it too strong (x)
     pub const E_DAMAGE_MULT: f32 = 0.5;
-    /// Terrify makes the target run away from Fiddlesticks like in League (pushed away each frame, facing away) (m/s)
-    pub const FEAR_FLEE_SPEED: f32 = 3.5;
     /// Terrify's icon floats over a feared head (m)
     pub const FEAR_ICON_SIZE: f32 = 0.55;
 }
