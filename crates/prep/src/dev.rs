@@ -84,6 +84,7 @@ pub fn run(args: &[String]) -> Result<()> {
         }
         for k in &c.clips { println!("clip {} frames {} fps {} events {}", k.id, k.frames, k.fps, k.submesh_events.len()); }
         for s in &c.model.submeshes { println!("submesh {} tex {} hidden {}", s.name, s.texture, s.hidden); }
+        for (i, j) in c.model.joints.iter().enumerate() { println!("joint {i} {} parent {}", j.name, j.parent); }
         for (k, t) in &c.icons { println!("tex {k} {}x{} fmt {} mips {}", t.width, t.height, t.format, t.mips.len()); }
         return Ok(());
     }

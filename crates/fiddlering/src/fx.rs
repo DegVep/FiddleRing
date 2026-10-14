@@ -151,8 +151,8 @@ impl Fx {
         }
     }
 
-    pub fn update(&mut self, dt: f32, caster: V3) {
-        let home = add(caster, [0.0, 1.3, 0.0]);
+    /// `home` is where homing particles fly to (his chest).
+    pub fn update(&mut self, dt: f32, caster: V3, home: V3) {
         for p in self.parts.iter_mut() {
             p.age += dt;
             p.rot += p.rotv * dt;

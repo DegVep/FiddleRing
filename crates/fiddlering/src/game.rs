@@ -1016,14 +1016,17 @@ impl Game {
                     dmg += val(&self.c, 2, "PercentMultiplier", d.rank) * (t.max_hp - t.hp).max(0) as f32;
                 }
                 healed += self.damage(*t, dmg, "W") * vamp;
+                self.fx.burst("w_drain", "tick", add(t.pos, [0.0, t.height * 0.6, 0.0]), norm(sub(me.pos, t.pos)), 0.0);
             }
         }
         for t in &alive {
             let chest = add(t.pos, [0.0, t.height * 0.6, 0.0]);
             self.fx.stream("w_drain", "tether_flow", t.ptr, chest, norm(sub(me.pos, t.pos)), 0.0, dt);
+            self.fx.stream("w_drain", "victim", t.ptr, add(t.pos, [0.0, t.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
         }
         self.fx.stream("w_drain", "channel", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
         if healed > 0.0 {
+            self.fx.burst("w_drain", "heal", add(me.pos, [0.0, 1.0, 0.0]), [0.0, 1.0, 0.0], 0.0);
             let p = chr_mut(player_ptr);
             p.modules.data.hp = (p.modules.data.hp + healed.round() as i32).min(p.modules.data.max_hp);
         }
@@ -1150,14 +1153,16 @@ impl Game {
             k * s, 0., k * c, 0.,
             me.pos[0], me.pos[1], me.pos[2], 1.,
         ];
-        let model = ModelDraw { model: 0, world, palette: self.anim.palette(&self.c), visible: self.anim.visible(&self.c) };
+        let palette = self.anim.palette(&self.c);
+        let soul = self.joint_world(&palette, &world, "Demon_Soul").unwrap_or(add(me.pos, [0.0, 1.0, 0.0]));
+        let model = ModelDraw { model: 0, world, palette, visible: self.anim.visible(&self.c) };
 
         let mut scene = Scene { models: vec![model], cam: cam_m, fov: pc.fov, near: pc.near_plane, far: pc.far_plane, world: vec![], screen: vec![], shot: None };
         let view = crate::fx::View { right, up, pos: cam_pos };
         let mut crows: Vec<crate::fx::Crow> = vec![];
 
         // particles (effects sheet)
-        self.fx.update(self.dt, me.pos);
+        self.fx.update(self.dt, me.pos, soul);
         let radii = [("w_drain", self.effect_radius("w_drain")), ("e_reap", self.effect_radius("e_reap")), ("r_crowstorm", self.effect_radius("r_crowstorm"))];
         let radius_of = |g: &str| radii.iter().find(|r| r.0 == g).map(|r| r.1).unwrap_or(1.0);
         self.fx.draw(&view, radius_of, &mut scene.world, &mut crows);
@@ -1184,14 +1189,10 @@ impl Game {
         }
         // Bountiful Harvest: tendrils from his hands to every victim
         if let Some(d) = &self.drain {
-            let hand = add(me.pos, [0.0, 1.5, 0.0]);
             for &p in &d.targets {
                 let ch = read_chr(chr_mut(p));
                 let to = add(ch.pos, [0.0, ch.height * 0.6, 0.0]);
-                for e in crate::fx::rows("w_drain", "tether_beam") {
-                    let wobble = 1.0 + 0.15 * (self.clock * 9.0 + p as f32).sin();
-                    scene.world.push(crate::fx::beam(e.texture, e.additive, hand, to, e.size_start * wobble, e.color_start, -self.clock * 2.5, &view));
-                }
+                self.draw_tendrils(soul, to, p as f32, &view, &mut scene.world);
             }
         }
         // crows: the raven model, flapping its own League flight loop, facing where it flies
@@ -1228,6 +1229,54 @@ impl Game {
             }
         }
         *SCENE.lock().unwrap() = Some(scene);
+    }
+
+    /// World position of one of Fiddlesticks' bones this frame.
+    fn joint_world(&self, palette: &[M4], world: &M4, name: &str) -> Option<V3> {
+        let i = self.c.model.joints.iter().position(|j| j.name == name)?;
+        let bind = lolread::math::transform_point(&lolread::math::inverse(&self.c.model.joints[i].ibind), [0.0; 3]);
+        let model = lolread::math::transform_point(palette.get(i)?, bind);
+        Some(lolread::math::transform_point(world, model))
+    }
+
+    /// Bountiful Harvest: three writhing tendrils from his chest to a victim, thick at the victim, with soul
+    /// pulses running up them to him.
+    fn draw_tendrils(&self, from: V3, to: V3, seed: f32, view: &crate::fx::View, out: &mut Vec<Sprite>) {
+        const SEGS: usize = 12;
+        let d = sub(to, from);
+        let side = norm(cross(d, [0.0, 1.0, 0.0]));
+        let side = if len(side) < 0.5 { [1.0, 0.0, 0.0] } else { side };
+        let lift = norm(cross(side, d));
+        let reach = len(d);
+        for k in 0..3 {
+            let ph = seed * 0.37 + k as f32 * 2.1;
+            let amp = (0.18 + 0.05 * reach.min(8.0)) * (0.7 + 0.3 * k as f32);
+            let at = |t: f32| -> V3 {
+                let bow = (t * std::f32::consts::PI).sin();
+                let a = amp * bow * (self.clock * 5.5 + ph + t * 7.0).sin();
+                let b = amp * 0.7 * bow * (self.clock * 4.3 + ph * 1.7 + t * 5.0).cos() + 0.25 * bow;
+                add(add(from, mul(d, t)), add(mul(side, a), mul(lift, b)))
+            };
+            let pts: Vec<V3> = (0..=SEGS).map(|i| at(i as f32 / SEGS as f32)).collect();
+            for e in crate::fx::rows("w_drain", "tether_beam") {
+                for i in 0..SEGS {
+                    // thin where it leaves him, thick where it grips the victim
+                    let taper = 0.45 + 0.75 * (i as f32 + 0.5) / SEGS as f32;
+                    let pulse = 1.0 + 0.2 * (self.clock * 9.0 + ph + i as f32).sin();
+                    let scroll = -self.clock * 3.0 + i as f32 * 0.35;
+                    out.push(crate::fx::beam(e.texture, e.additive, pts[i], pts[i + 1], e.size_start * taper * pulse, e.color_start, scroll, view));
+                }
+            }
+            for e in crate::fx::rows("w_drain", "tether_pulse") {
+                for n in 0..2 {
+                    // victim (t = 1) to him (t = 0)
+                    let t = 1.0 - (self.clock * 1.4 + ph * 0.3 + n as f32 * 0.5).fract();
+                    let mut c = e.color_start;
+                    c[3] *= (t * std::f32::consts::PI).sin();
+                    out.push(crate::fx::billboard(e.texture, e.additive, at(t), e.size_start, 0.0, c, quad_uv(), view));
+                }
+            }
+        }
     }
 
     fn attack_speed(&self) -> f32 {
