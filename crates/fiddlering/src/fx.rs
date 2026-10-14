@@ -245,20 +245,6 @@ pub fn ground(tex: &'static str, additive: bool, at: V3, dir: V3, size: f32, col
     }
 }
 
-/// A textured strip from `a` to `b` facing the camera; the texture scrolls along it.
-pub fn beam(tex: &'static str, additive: bool, a: V3, b: V3, width: f32, color: [f32; 4], scroll: f32, v: &View) -> Sprite {
-    let dir = norm(sub(b, a));
-    let side = mul(norm(cross(dir, norm(sub(v.pos, a)))), width * 0.5);
-    let l = len(sub(b, a)) / width.max(0.1) * 0.5;
-    Sprite {
-        tex,
-        additive,
-        pos: [add(a, side), add(b, side), sub(b, side), sub(a, side)],
-        uv: [[0.0, scroll], [0.0, scroll + l], [1.0, scroll + l], [1.0, scroll]],
-        color,
-    }
-}
-
 /// The rows of an effect for a trigger (missile heads and beams are drawn by the game from its own state).
 pub fn rows(effect: &str, trigger: &str) -> Vec<&'static Effect> {
     sheet::EFFECTS.iter().filter(|e| e.effect == effect && e.trigger == trigger).collect()
