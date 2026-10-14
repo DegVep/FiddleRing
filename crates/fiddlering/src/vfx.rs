@@ -677,7 +677,7 @@ pub fn crow_draw(raven: &(lolread::cache::Model, lolread::cache::Clip), pos: V3,
     let mx = tuning::MODEL_MIRROR_X;
     let world = [r[0] * k * mx, r[1] * k * mx, r[2] * k * mx, 0., u[0] * k, u[1] * k, u[2] * k, 0., f[0] * k, f[1] * k, f[2] * k, 0., pos[0], pos[1], pos[2], 1.];
     let locals = lolread::pose::sample_locals(&raven.0, Some(&raven.1), clock, true);
-    ModelDraw { model: 1, world, palette: lolread::pose::palette(&raven.0, &locals), visible: vec![true; raven.0.submeshes.len()] }
+    ModelDraw { model: 1, world, palette: lolread::pose::palette(&raven.0, &locals), visible: vec![true; raven.0.submeshes.len()], statue: 0.0 }
 }
 
 #[cfg(test)]

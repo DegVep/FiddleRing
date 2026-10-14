@@ -265,7 +265,10 @@ float4 ps(VO i) : SV_Target {
     float4 c = tex.Sample(smp, i.uv);
     clip(c.a - 0.3);
     float l = light.w + (1 - light.w) * saturate(dot(normalize(i.n), normalize(light.xyz)));
-    return float4(c.rgb * l * tint.rgb, 1);
+    // tint.a: gold statue (Zhonya), the texture's brightness in gold
+    float g = dot(c.rgb, float3(0.3, 0.59, 0.11));
+    float3 gold = float3(1.0, 0.76, 0.30) * (0.45 + 1.8 * g) * (0.35 + 0.9 * l);
+    return float4(lerp(c.rgb * l * tint.rgb, gold, tint.a), 1);
 }
 struct SI { float4 p : POSITION; float2 uv : TEXCOORD0; float4 c : COLOR; float2 uv2 : TEXCOORD1; float2 e : TEXCOORD2; };
 struct SO { float4 p : SV_Position; float2 uv : TEXCOORD0; float4 c : COLOR; float2 uv2 : TEXCOORD1; float2 e : TEXCOORD2; };
@@ -844,7 +847,7 @@ impl Renderer {
                 let mut consts = [0f32; 40];
                 consts[..16].copy_from_slice(&mvp);
                 consts[16..32].copy_from_slice(&m.world);
-                consts[32..36].copy_from_slice(&[1.0, 1.0, 1.0, 1.0]);
+                consts[32..36].copy_from_slice(&[1.0, 1.0, 1.0, m.statue]);
                 consts[36..40].copy_from_slice(&light);
                 list.SetGraphicsRoot32BitConstants(0, 40, consts.as_ptr() as _, 0);
                 list.SetGraphicsRootConstantBufferView(1, upload_gpu + pal_at as u64);

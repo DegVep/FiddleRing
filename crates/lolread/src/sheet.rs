@@ -217,6 +217,9 @@ pub const EFFECTS: &[Effect] = &[
     Effect { id: "item_amp_sparks", effect: "items", trigger: "amp", texture: "fx_sparks", render: "stretched", additive: true, count: 10, rate: 0.0, life: 0.3, size_start: 0.45, size_end: 0.08, speed: 6.0, spread: 1.0, up: 0.5, gravity: 0.0, drag: 3.0, spin: 0.0, color_start: [0.8784, 0.4392, 1.0, 1.0], color_end: [0.3765, 0.1255, 0.6275, 0.0], frames: 1, radius: 0.0, motion: "free" },
     Effect { id: "item_amp_flash", effect: "items", trigger: "amp", texture: "fx_glow", render: "billboard", additive: true, count: 1, rate: 0.0, life: 0.18, size_start: 0.9, size_end: 1.6, speed: 0.0, spread: 0.0, up: 0.0, gravity: 0.0, drag: 0.0, spin: 0.0, color_start: [0.7529, 0.3765, 1.0, 0.7529], color_end: [0.0, 0.0, 0.0, 0.0], frames: 1, radius: 0.0, motion: "free" },
     Effect { id: "item_aura", effect: "items", trigger: "aura", texture: "fx_glow", render: "billboard", additive: true, count: 0, rate: 5.0, life: 1.2, size_start: 0.14, size_end: 0.04, speed: 0.0, spread: 0.0, up: 0.5, gravity: 0.0, drag: 0.0, spin: 2.0, color_start: [0.6902, 0.502, 1.0, 0.7529], color_end: [0.3765, 0.251, 1.0, 0.0], frames: 1, radius: 0.7, motion: "orbit" },
+    Effect { id: "item_stasis_flash", effect: "items", trigger: "stasis_start", texture: "fx_glow", render: "billboard", additive: true, count: 1, rate: 0.0, life: 0.35, size_start: 1.6, size_end: 3.2, speed: 0.0, spread: 0.0, up: 1.0, gravity: 0.0, drag: 0.0, spin: 0.0, color_start: [1.0, 0.8471, 0.4392, 0.8784], color_end: [1.0, 0.6275, 0.1882, 0.0], frames: 1, radius: 0.0, motion: "free" },
+    Effect { id: "item_stasis_shell", effect: "items", trigger: "stasis", texture: "fx_glow", render: "billboard", additive: true, count: 0, rate: 8.0, life: 0.6, size_start: 1.9, size_end: 1.6, speed: 0.0, spread: 0.0, up: 1.0, gravity: 0.0, drag: 0.0, spin: 0.0, color_start: [1.0, 0.8, 0.3137, 0.3137], color_end: [1.0, 0.6275, 0.1255, 0.0], frames: 1, radius: 0.0, motion: "free" },
+    Effect { id: "item_stasis_sparks", effect: "items", trigger: "stasis", texture: "fx_glow", render: "billboard", additive: true, count: 0, rate: 22.0, life: 0.9, size_start: 0.12, size_end: 0.03, speed: 0.0, spread: 0.0, up: 0.8, gravity: 0.0, drag: 0.0, spin: 3.0, color_start: [1.0, 0.9412, 0.6275, 1.0], color_end: [1.0, 0.6902, 0.251, 0.0], frames: 1, radius: 0.6, motion: "orbit" },
 ];
 
 /// Elden Ring team types Fiddlesticks' abilities hit.
@@ -267,7 +270,7 @@ pub const ITEMS: &[ItemRow] = &[
     ItemRow { id: 3135, effect: "dmg_mult", value: 0.15 },
     ItemRow { id: 4645, effect: "low_hp_mult", value: 0.2 },
     ItemRow { id: 3116, effect: "slow", value: 0.3 },
-    ItemRow { id: 3157, effect: "none", value: 0.0 },
+    ItemRow { id: 3157, effect: "stasis", value: 2.5 },
     ItemRow { id: 4629, effect: "none", value: 0.0 },
     ItemRow { id: 3165, effect: "low_hp_mult", value: 0.1 },
     ItemRow { id: 4633, effect: "dmg_mult", value: 0.08 },
@@ -381,4 +384,6 @@ pub mod tuning {
     pub const ITEM_OFFER_DELAY: f32 = 2.0;
     /// a strong (team 7) enemy dying this close to a full-screen banner request (ENEMY FELLED) counts as a boss: the boss health bars are not filled while Elden Ring's HUD is hidden (s)
     pub const BOSS_BANNER_WINDOW: f32 = 6.0;
+    /// Zhonya's stasis (T) cooldown, League's 120 s (s)
+    pub const ZHONYA_COOLDOWN: f32 = 120.0;
 }

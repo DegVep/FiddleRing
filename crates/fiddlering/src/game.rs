@@ -206,6 +206,10 @@ pub struct Game {
     pending: Option<Pending>,
     face: Option<(V3, f32)>,
     clock: f32,
+    /// Zhonya's stasis: until when (clock), when it can be used again, the T key last frame
+    stasis_until: f32,
+    stasis_ready_at: f32,
+    stasis_key: bool,
     last: Instant,
     moved_once: bool,
     test: bool,
@@ -414,6 +418,9 @@ impl Game {
             ult: None,
             pending: None,
             face: None,
+            stasis_until: 0.0,
+            stasis_ready_at: 0.0,
+            stasis_key: false,
             clock: 0.0,
             last: Instant::now(),
             moved_once: false,
@@ -810,6 +817,7 @@ impl Game {
         player.chr_ins.opacity_keyframes_multiplier = 0.0;
         let interrupted = self.immune_to_cc(&mut player.chr_ins.modules.super_armor);
         hold_super_armor(&mut player.chr_ins);
+        let in_stasis = self.update_stasis(&mut player.chr_ins);
         // whose progress: the loaded save slot and the character's name
         {
             let pgd = unsafe { player.player_game_data.as_ref() };
@@ -891,6 +899,9 @@ impl Game {
         self.hostile_ptrs = hostiles.iter().map(|h| h.ptr).collect();
         self.track_bosses(wcm);
         self.update_burns(dt);
+        if in_stasis {
+            self.fx.stream("items", "stasis", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        }
         if self.item_effect("ap_mult") > 0.0 {
             self.fx.stream("items", "aura", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
         }
@@ -958,7 +969,7 @@ impl Game {
         }
 
         // casting
-        let rooted = matches!(self.ult, Some(Ult::Channel { .. } | Ult::Leap { .. }));
+        let rooted = in_stasis || matches!(self.ult, Some(Ult::Channel { .. } | Ult::Leap { .. }));
         if !self.dead && !rooted {
             let mut wanted: Option<usize> = None;
             for slot in 0..5 {
@@ -1064,7 +1075,9 @@ impl Game {
         if self.anim.id() == "w_loop" && self.drain.is_none() {
             self.anim.play("w_end", true);
         }
-        self.anim.update(&self.c, dt);
+        if !in_stasis {
+            self.anim.update(&self.c, dt); // a statue holds his pose
+        }
 
         self.status_t += dt;
         if self.status_t > 5.0 {
@@ -1594,7 +1607,9 @@ impl Game {
         ];
         let palette = self.anim.palette(&self.c);
         let soul = self.joint_world(&palette, &world, "Demon_Soul").unwrap_or(add(me.pos, [0.0, 1.0, 0.0]));
-        let model = ModelDraw { model: 0, world, palette, visible: self.anim.visible(&self.c) };
+        // turns gold over a moment when the stasis starts, back when it ends
+        let statue = ((self.stasis_until - self.clock) * 6.0).clamp(0.0, 1.0);
+        let model = ModelDraw { model: 0, world, palette, visible: self.anim.visible(&self.c), statue };
 
         let mut scene = Scene { models: vec![model], cam: cam_m, fov: pc.fov, near: pc.near_plane, far: pc.far_plane, world: vec![], vfx: vec![], screen: vec![], shot: None };
         let view = crate::fx::View { right, up, pos: cam_pos };
@@ -1705,7 +1720,7 @@ impl Game {
                     c.pos[0], c.pos[1], c.pos[2], 1.,
                 ];
                 let locals = lolread::pose::sample_locals(raven, Some(clip), c.anim, true);
-                scene.models.push(ModelDraw { model: 1, world, palette: lolread::pose::palette(raven, &locals), visible: vis.clone() });
+                scene.models.push(ModelDraw { model: 1, world, palette: lolread::pose::palette(raven, &locals), visible: vis.clone(), statue: 0.0 });
             }
         }
 
@@ -2527,6 +2542,34 @@ impl Game {
         }
     }
 
+    /// Zhonya's active (T): a gold statue for a moment, untouchable and unable to move or act. Uses the game's own
+    /// debug flags (no hits, no movement, no actions). Returns whether he is in stasis this frame.
+    fn update_stasis(&mut self, c: &mut ChrIns) -> bool {
+        let down = game_focused() && key_down(b'T' as i32);
+        let pressed = down && !self.stasis_key;
+        self.stasis_key = down;
+        let owned = self.items.iter().any(|id| sheet::ITEMS.iter().any(|r| r.id == *id && r.effect == "stasis"));
+        if pressed && owned && !self.dead && self.clock >= self.stasis_ready_at {
+            self.stasis_until = self.clock + self.item_effect("stasis");
+            self.stasis_ready_at = self.clock + tuning::ZHONYA_COOLDOWN;
+            log!("ZHONYA stasis");
+            self.fx.burst("items", "stasis_start", read_chr(c).pos, [0.0, 1.0, 0.0], 0.0);
+            if self.drain.take().is_some() {
+                if let Some(a) = self.audio.as_mut() {
+                    a.stop("sfx_w_");
+                }
+            }
+        }
+        let on = self.clock < self.stasis_until;
+        let f = &mut c.debug_flags;
+        if on || f.disabled_hit() {
+            f.set_disabled_hit(on);
+            f.set_disabled_movement(on);
+            f.set_disabled_secondary_actions(on);
+        }
+        on
+    }
+
     /// Item burns: a share of the target's max HP per second while they last.
     fn update_burns(&mut self, dt: f32) {
         let clock = self.clock;
@@ -2587,6 +2630,17 @@ impl Game {
                 out.push(rect(x, y, 32.0, 32.0, [0.02, 0.03, 0.04, 1.0], "white"));
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
+                    if sheet::ITEMS.iter().any(|r| r.id == id && r.effect == "stasis") {
+                        // its active: the key, and the cooldown filling up like an ability's
+                        let left_s = self.stasis_ready_at - self.clock;
+                        if left_s > 0.0 {
+                            let f = (left_s / tuning::ZHONYA_COOLDOWN).clamp(0.0, 1.0);
+                            out.push(rect(x, y + 32.0 * (1.0 - f), 32.0, 32.0 * f, [0.0, 0.0, 0.0, 0.65], "white"));
+                            label(out, &format!("{:.0}", left_s.ceil()), x + 16.0, y + 9.0, 14.0, white);
+                        }
+                        out.push(rect(x + 21.0, y + 20.0, 11.0, 12.0, [0.0, 0.0, 0.0, 0.8], "white"));
+                        label(out, "T", x + 26.5, y + 20.0, 11.0, gold);
+                    }
                 }
             }
         }

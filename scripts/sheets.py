@@ -71,7 +71,7 @@ def preflight(release=False, verify_path=None):
     for r in s["er_menus"]["rows"]:
         ref(f"er_menus[{r['id']}].action", r["action"], {"hide", "close", "keep", "hud"})
     for r in s["items"]["rows"]:
-        ref(f"items[{r['id']}].effect", r["effect"], {"burn", "slow", "ap_mult", "dmg_mult", "low_hp_mult", "r_haste", "none"})
+        ref(f"items[{r['id']}].effect", r["effect"], {"burn", "slow", "ap_mult", "dmg_mult", "low_hp_mult", "r_haste", "stasis", "none"})
     for r in s["vfx_events"]["rows"]:
         if not (r["attach"] in ("caster", "target", "point", "missile", "beam", "fly_to_caster") or r["attach"].startswith("bone:")):
             problems.append(f"vfx_events[{r['id']}].attach: '{r['attach']}' unknown")
@@ -82,7 +82,7 @@ def preflight(release=False, verify_path=None):
     for r in s["abilities"]["rows"]:
         ref(f"abilities[{r['id']}].effect", r["effect"], effect_groups)
     enums = {
-        "trigger": {"missile_head", "missile_trail", "hit", "area", "feared", "tether_beam", "tether_pulse", "tether_flow", "victim", "tick", "heal", "channel", "final", "r_channel", "storm", "r_leap", "r_land", "burn", "frost", "amp", "aura"},
+        "trigger": {"missile_head", "missile_trail", "hit", "area", "feared", "tether_beam", "tether_pulse", "tether_flow", "victim", "tick", "heal", "channel", "final", "r_channel", "storm", "r_leap", "r_land", "burn", "frost", "amp", "aura", "stasis", "stasis_start"},
         "render": {"billboard", "stretched", "ground", "beam", "model"},
         "blend": {"add", "alpha"},
         "motion": {"free", "orbit", "home"},
@@ -104,7 +104,7 @@ def preflight(release=False, verify_path=None):
                 float(r["radius"])
             except ValueError:
                 problems.append(f"{w}.radius: '{r['radius']}' is neither a number nor 'ability'")
-        burst = r["trigger"] in ("missile_head", "hit", "area", "final", "tether_beam", "tether_pulse", "tick", "heal", "r_land", "amp")
+        burst = r["trigger"] in ("missile_head", "hit", "area", "final", "tether_beam", "tether_pulse", "tick", "heal", "r_land", "amp", "stasis_start")
         if burst and r["count"] <= 0:
             problems.append(f"{w}.count: a {r['trigger']} emitter needs count > 0")
         if not burst and r["rate"] <= 0:

@@ -63,6 +63,8 @@ pub struct ModelDraw {
     pub world: M4,
     pub palette: Vec<M4>,
     pub visible: Vec<bool>,
+    /// 0..1: how much it looks like a gold statue (Zhonya's stasis)
+    pub statue: f32,
 }
 
 pub static SCENE: Mutex<Option<Scene>> = Mutex::new(None);

@@ -52,9 +52,9 @@
     },
     {
       "id": 3157,
-      "effect": "none",
-      "value": 0,
-      "note": "Reloj de arena de Zhonya: stats only"
+      "effect": "stasis",
+      "value": 2.5,
+      "note": "Reloj de arena de Zhonya: T = estasis (value s): gold statue, no damage, no movement"
     },
     {
       "id": 4629,

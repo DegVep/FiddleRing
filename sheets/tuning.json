@@ -235,6 +235,12 @@
       "value": 6.0,
       "unit": "s",
       "why": "a strong (team 7) enemy dying this close to a full-screen banner request (ENEMY FELLED) counts as a boss: the boss health bars are not filled while Elden Ring's HUD is hidden"
+    },
+    {
+      "id": "zhonya_cooldown",
+      "value": 120.0,
+      "unit": "s",
+      "why": "Zhonya's stasis (T) cooldown, League's 120 s"
     }
   ]
 }
