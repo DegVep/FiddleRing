@@ -584,6 +584,10 @@ impl Game {
                 if fe.hud_state == eldenring::cs::CSFeManHudState::Default {
                     fe.hud_state = eldenring::cs::CSFeManHudState::HideAll;
                 }
+                // and its equipment HUD (weapons, flasks, spells, quick items): Fiddlesticks uses none
+                if tuning::HIDE_ER_EQUIP > 0.5 {
+                    fe.frontend_values.enable_equip_hud = false;
+                }
             }
         }
         self.update_skins();

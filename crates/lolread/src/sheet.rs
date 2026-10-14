@@ -351,4 +351,6 @@ pub mod tuning {
     pub const MODEL_TURN_RATE: f32 = 12.0;
     /// Elden Ring's own HP/FP/stamina bars are hidden (CSFeManImp.hud_state Default -> HideAll each frame); compass and equipment stay (1 = on)
     pub const HIDE_ER_BARS: f32 = 1.0;
+    /// Elden Ring's equipment HUD (weapons, flasks, spells, quick items) is hidden (frontend_values.enable_equip_hud off each frame, while hide_er_bars is on) (1 = on)
+    pub const HIDE_ER_EQUIP: f32 = 1.0;
 }
