@@ -49,3 +49,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: W heal missiles (League W_Mis, little hands) removed; each drain tick shows the effects-sheet sparks on the enemy.
 - 2026-10-14: CC immunity v2: the game clamps sa_durability to its max (log "CC immunity: ... clamped"), so poise alone failed (creator still got staggered). Now also action_flag.action_modifiers_flags.super_armor (TAE action 24) set + poise full at FrameBegin, ChrIns_PreBehaviorSafe and the tick. Unverified in game.
 - 2026-10-14: CC immunity v3: action_flag.damage_level (last hit stagger size) zeroed with super armor, Morgott still staggered him. Unverified.
+- 2026-10-14: progress per Elden Ring character (GameMan.save_slot + PlayerGameData.character_name): progress_<slot>_<name>.txt, switched when another save loads; old progress.txt migrates to the first loaded character with ER level > 15.

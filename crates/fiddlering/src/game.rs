@@ -140,6 +140,8 @@ pub struct Game {
     skin_job: Option<(u32, std::sync::mpsc::Receiver<bool>)>,
     skin_note: Option<(String, f32)>,
     menu_keys: [bool; 6],
+    /// the Elden Ring character whose progress is loaded (save slot + name)
+    save_key: Option<String>,
     /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
     vfx: Vfx,
     vfx_live: HashMap<(&'static str, usize), u64>,
@@ -208,8 +210,22 @@ pub struct Game {
     dbg_last: u64,
 }
 
-fn progress_path() -> std::path::PathBuf {
-    crate::log::data_dir().join("progress.txt")
+/// Fiddlesticks' level, xp and ranks for one Elden Ring character (save slot + name).
+fn progress_path(key: &str) -> std::path::PathBuf {
+    crate::log::data_dir().join(format!("progress_{key}.txt"))
+}
+
+/// `level xp rQ rW rE rR`
+fn read_progress(path: &std::path::Path) -> Option<(u32, f32, [u32; 5])> {
+    let t = std::fs::read_to_string(path).ok()?;
+    let mut it = t.split_whitespace();
+    let level = it.next()?.parse::<u32>().ok()?.clamp(1, 18);
+    let xp = it.next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+    let mut ranks = [1, 0, 0, 0, 0];
+    for r in ranks.iter_mut().skip(1) {
+        *r = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    }
+    Some((level, xp, ranks))
 }
 
 fn spell<'a>(c: &'a Cache, slot: usize) -> Option<&'a Spell> {
@@ -297,15 +313,8 @@ impl Game {
                 None
             }
         };
-        let (mut level, mut xp, mut ranks) = (1u32, 0f32, [1u32, 0, 0, 0, 0]);
-        if let Ok(t) = std::fs::read_to_string(progress_path()) {
-            let mut it = t.split_whitespace();
-            level = it.next().and_then(|v| v.parse().ok()).unwrap_or(1).clamp(1, 18);
-            xp = it.next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
-            for r in ranks.iter_mut().skip(1) {
-                *r = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-            }
-        }
+        let (mut level, xp, mut ranks) = (1u32, 0f32, [1u32, 0, 0, 0, 0]);
+        // progress belongs to an Elden Ring character: it is loaded once the game says which one (switch_save)
         let test = std::env::var_os("FIDDLERING_TEST").is_some() || crate::log::data_dir().join("test.txt").exists();
         if test {
             level = 18;
@@ -325,6 +334,7 @@ impl Game {
             skin_job: None,
             skin_note: None,
             menu_keys: [false; 6],
+            save_key: None,
             vfx: Vfx::new(),
             vfx_live: HashMap::new(),
             vfx_theme: None,
@@ -440,9 +450,38 @@ impl Game {
         if self.test || !self.dirty {
             return;
         }
+        let Some(key) = &self.save_key else { return };
         let r = &self.ranks;
-        let _ = std::fs::write(progress_path(), format!("{} {:.1} {} {} {} {}\n", self.level, self.xp, r[1], r[2], r[3], r[4]));
+        let _ = std::fs::write(progress_path(key), format!("{} {:.1} {} {} {} {}\n", self.level, self.xp, r[1], r[2], r[3], r[4]));
         self.dirty = false;
+    }
+
+    /// Another Elden Ring character was loaded: keep the last one's progress and take this one's (level 1 if new).
+    fn switch_save(&mut self, key: String, er_level: u32) {
+        if self.save_key.is_some() {
+            self.dirty = true;
+            self.save();
+        }
+        let path = progress_path(&key);
+        let mut loaded = read_progress(&path);
+        // progress kept before it was per character: it goes to the first well-advanced character loaded
+        let old = crate::log::data_dir().join("progress.txt");
+        if loaded.is_none() && er_level > 15 && old.exists() {
+            loaded = read_progress(&old);
+            let _ = std::fs::rename(&old, crate::log::data_dir().join("progress_migrated.txt"));
+            log!("progress.txt moved to character {key}");
+        }
+        if !self.test {
+            let (level, xp, ranks) = loaded.unwrap_or((1, 0.0, [1, 0, 0, 0, 0]));
+            self.level = level;
+            self.xp = xp;
+            self.ranks = ranks;
+            self.cd = [0.0; 5];
+        }
+        log!("SAVE {key}: champion level {}, xp {:.0}", self.level, self.xp);
+        self.save_key = Some(key);
+        self.dirty = true;
+        self.save();
     }
 
     fn gain_xp(&mut self, amount: f32) {
@@ -553,6 +592,16 @@ impl Game {
         player.chr_ins.opacity_keyframes_multiplier = 0.0;
         let interrupted = self.immune_to_cc(&mut player.chr_ins.modules.super_armor);
         hold_super_armor(&mut player.chr_ins);
+        // whose progress: the loaded save slot and the character's name
+        {
+            let pgd = unsafe { player.player_game_data.as_ref() };
+            let name: String = String::from_utf16_lossy(&pgd.character_name).trim_end_matches(' ').chars().filter(|c| c.is_alphanumeric()).collect();
+            let slot = unsafe { eldenring::cs::GameMan::instance() }.map(|g| g.save_slot).unwrap_or(-1);
+            let key = format!("{slot}_{name}");
+            if self.save_key.as_deref() != Some(key.as_str()) {
+                self.switch_save(key, pgd.level);
+            }
+        }
         if !self.hidden_logged {
             self.hidden_logged = true;
             log!("player found at {:?}, hp {}, ER level {}, ap {ap}", me.pos, me.hp, ap / tuning::AP_PER_RUNE_LEVEL + 1.0);
