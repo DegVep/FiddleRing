@@ -16,7 +16,7 @@ use lolread::sheet::{self, tuning};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_DOWN, VK_F2, VK_LEFT, VK_MENU, VK_RETURN, VK_RIGHT, VK_UP};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_DOWN, VK_F2, VK_F3, VK_LEFT, VK_MENU, VK_RETURN, VK_RIGHT, VK_UP};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 type V3 = [f32; 3];
@@ -142,6 +142,18 @@ pub struct Game {
     menu_keys: [bool; 6],
     /// the Elden Ring character whose progress is loaded (save slot + name)
     save_key: Option<String>,
+    /// League items owned (ids), offered three at a time when a boss dies
+    items: Vec<u32>,
+    offer: Option<([u32; 3], usize)>,
+    /// F3: the items window, on the slot shown
+    inv_open: Option<usize>,
+    item_keys: [bool; 4],
+    /// bosses whose health bar showed, a boss died and when the bars cleared
+    boss_ptrs: HashSet<usize>,
+    boss_died: bool,
+    bars_clear_at: f32,
+    /// item burns: (character, until, share of max HP per second, carried damage)
+    burns: Vec<(usize, f32, f32, f32)>,
     /// the model's yaw, easing towards where he faces
     model_yaw: f32,
     /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
@@ -221,8 +233,8 @@ fn progress_path(key: &str) -> std::path::PathBuf {
     crate::log::data_dir().join(format!("progress_{key}.txt"))
 }
 
-/// `level xp rQ rW rE rR`
-fn read_progress(path: &std::path::Path) -> Option<(u32, f32, [u32; 5])> {
+/// `level xp rQ rW rE rR [items...]`
+fn read_progress(path: &std::path::Path) -> Option<(u32, f32, [u32; 5], Vec<u32>)> {
     let t = std::fs::read_to_string(path).ok()?;
     let mut it = t.split_whitespace();
     let level = it.next()?.parse::<u32>().ok()?.clamp(1, 18);
@@ -231,7 +243,8 @@ fn read_progress(path: &std::path::Path) -> Option<(u32, f32, [u32; 5])> {
     for r in ranks.iter_mut().skip(1) {
         *r = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
     }
-    Some((level, xp, ranks))
+    let items = it.filter_map(|v| v.parse().ok()).take(6).collect();
+    Some((level, xp, ranks, items))
 }
 
 fn spell<'a>(c: &'a Cache, slot: usize) -> Option<&'a Spell> {
@@ -341,6 +354,14 @@ impl Game {
             skin_note: None,
             menu_keys: [false; 6],
             save_key: None,
+            items: vec![],
+            offer: None,
+            inv_open: None,
+            item_keys: [false; 4],
+            boss_ptrs: HashSet::new(),
+            boss_died: false,
+            bars_clear_at: 0.0,
+            burns: vec![],
             model_yaw: 0.0,
             vfx: Vfx::new(),
             vfx_live: HashMap::new(),
@@ -461,7 +482,8 @@ impl Game {
         }
         let Some(key) = &self.save_key else { return };
         let r = &self.ranks;
-        let _ = std::fs::write(progress_path(key), format!("{} {:.1} {} {} {} {}\n", self.level, self.xp, r[1], r[2], r[3], r[4]));
+        let items: String = self.items.iter().map(|i| format!(" {i}")).collect();
+        let _ = std::fs::write(progress_path(key), format!("{} {:.1} {} {} {} {}{items}\n", self.level, self.xp, r[1], r[2], r[3], r[4]));
         self.dirty = false;
     }
 
@@ -481,7 +503,8 @@ impl Game {
             log!("progress.txt moved to character {key}");
         }
         if !self.test {
-            let (level, xp, ranks) = loaded.unwrap_or((1, 0.0, [1, 0, 0, 0, 0]));
+            let (level, xp, ranks, items) = loaded.unwrap_or((1, 0.0, [1, 0, 0, 0, 0], vec![]));
+            self.items = items;
             self.level = level;
             self.xp = xp;
             self.ranks = ranks;
@@ -516,6 +539,27 @@ impl Game {
         if hp <= 0 {
             return 0.0;
         }
+        // League items on ability hits: more damage, burns, slows
+        let mut amount = amount;
+        if matches!(what, "Q" | "W" | "E" | "R") && !self.items.is_empty() {
+            amount *= 1.0 + self.item_effect("dmg_mult");
+            if (hp as f32) < 0.4 * c.modules.data.max_hp.max(1) as f32 {
+                amount *= 1.0 + self.item_effect("low_hp_mult");
+            }
+            let burn = self.item_effect("burn");
+            if burn > 0.0 {
+                let until = self.clock + 3.0;
+                match self.burns.iter_mut().find(|b| b.0 == ch.ptr) {
+                    Some(b) => b.1 = until,
+                    None => self.burns.push((ch.ptr, until, burn, 0.0)),
+                }
+            }
+            let slow = self.item_effect("slow");
+            if slow > 0.0 {
+                self.apply_cc(ch.ptr, 1.0, false, false, slow);
+            }
+        }
+        let c = chr_mut(ch.ptr);
         let dmg = (amount * tuning::DAMAGE_SCALE).max(1.0).round() as i32;
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
@@ -598,6 +642,7 @@ impl Game {
             }
         }
         self.update_skins();
+        self.update_items();
         // loading screens (er_menus sheet): nothing of Fiddlesticks on them
         if sheet::HIDE_ON_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
             self.publish(None);
@@ -623,7 +668,9 @@ impl Game {
         }
         let player_ptr = &player.chr_ins as *const ChrIns as usize;
         let me = read_chr(&player.chr_ins);
-        let ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
+        let rune_ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
+        let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap).sum();
+        let ap = (rune_ap + item_ap) * (1.0 + self.item_effect("ap_mult"));
 
         // hide the Tarnished under Fiddlesticks
         player.chr_ins.base_transparency = 0.0;
@@ -708,6 +755,8 @@ impl Game {
             self.in_range[s] = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= range);
         }
         self.alive_ptrs = alive.clone();
+        self.track_bosses(wcm);
+        self.update_burns(dt);
         self.snap_pos = me.pos;
         let locked_ptr = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize).filter(|p| alive.contains(p));
 
@@ -1004,7 +1053,10 @@ impl Game {
         };
         let cd = match slot {
             0 => 1.0 / self.attack_speed(),
-            _ => val(&self.c, slot, "CooldownTime", rank),
+            _ => {
+                let haste: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.haste).sum::<f32>() + if slot == 4 { self.item_effect("r_haste") } else { 0.0 };
+                val(&self.c, slot, "CooldownTime", rank) * 100.0 / (100.0 + haste)
+            }
         };
         self.cd[slot] = cd;
         // basic attack: League's melee swipe when the target is close, otherwise the ranged cast
@@ -1867,6 +1919,7 @@ impl Game {
                 _ => {}
             }
         }
+        self.draw_items(out, &rect, &frame, &gradient, &label);
         if let Some((row, ch)) = self.skin_menu {
             self.draw_skin_menu(out, row, ch, &rect, &frame, &gradient, &label);
         }
@@ -2134,5 +2187,251 @@ impl Game {
         }
 
         label(out, "Arriba/Abajo: skin  ·  Izquierda/Derecha: croma  ·  Enter: equipar  ·  F2: cerrar", 960.0, py + ph - 40.0, 16.0, grey);
+    }
+}
+
+/// Words of `text` in lines no wider than `width` at glyph height `size`.
+fn wrap(text: &str, width: f32, size: f32) -> Vec<String> {
+    let mut lines = vec![];
+    for para in text.lines() {
+        let mut line = String::new();
+        for w in para.split_whitespace() {
+            let cand = if line.is_empty() { w.to_string() } else { format!("{line} {w}") };
+            if font::width(&cand, size) > width && !line.is_empty() {
+                lines.push(std::mem::take(&mut line));
+                line = w.to_string();
+            } else {
+                line = cand;
+            }
+        }
+        if !line.is_empty() {
+            lines.push(line);
+        }
+    }
+    lines
+}
+
+fn item_icon(id: u32) -> &'static str {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    static KEYS: Mutex<Option<HashMap<u32, &'static str>>> = Mutex::new(None);
+    let mut g = KEYS.lock().unwrap();
+    g.get_or_insert_with(HashMap::new).entry(id).or_insert_with(|| Box::leak(format!("item_{id}").into_boxed_str()))
+}
+
+// League items: a boss dies -> pick one of three; their stats and passives feed the kit; F3 lists them.
+impl Game {
+    fn item_info(&self, id: u32) -> Option<&lolread::cache::ItemInfo> {
+        self.c.items.iter().find(|i| i.id == id)
+    }
+
+    /// Sum of an items-sheet effect over the items owned.
+    fn item_effect(&self, effect: &str) -> f32 {
+        self.items.iter().filter_map(|id| sheet::ITEMS.iter().find(|r| r.id == *id)).filter(|r| r.effect == effect).map(|r| r.value).sum()
+    }
+
+    /// Bosses with a health bar on screen; when one dies and every bar has gone, three items are offered.
+    fn track_bosses(&mut self, wcm: &WorldChrMan) {
+        let Ok(fe) = (unsafe { eldenring::cs::CSFeManImp::instance() }) else { return };
+        let mut any_bar = false;
+        for e in fe.boss_health_displays.iter() {
+            if e.fmg_id <= 0 {
+                continue;
+            }
+            if let Some(c) = wcm.chr_ins_by_handle(&e.field_ins_handle) {
+                any_bar = true;
+                let p = c as *const ChrIns as usize;
+                if self.boss_ptrs.insert(p) {
+                    log!("BOSS bar: chr {} (fmg {})", c.character_id, e.fmg_id);
+                }
+            }
+        }
+        let alive = &self.alive_ptrs;
+        let mut died = false;
+        self.boss_ptrs.retain(|&p| {
+            if !alive.contains(&p) {
+                return false;
+            }
+            if chr_mut(p).modules.data.hp <= 0 {
+                died = true;
+                return false;
+            }
+            true
+        });
+        if died {
+            log!("BOSS defeated");
+            self.boss_died = true;
+        }
+        if any_bar {
+            self.bars_clear_at = self.clock;
+        } else if self.boss_died && self.clock - self.bars_clear_at > tuning::ITEM_OFFER_DELAY {
+            self.boss_died = false;
+            self.offer_items();
+        }
+    }
+
+    /// Three items not owned yet, picked at random.
+    fn offer_items(&mut self) {
+        if self.items.len() >= 6 || self.offer.is_some() {
+            return;
+        }
+        let mut pool: Vec<u32> = sheet::ITEMS.iter().map(|r| r.id).filter(|id| !self.items.contains(id) && self.item_info(*id).is_some()).collect();
+        if pool.len() < 3 {
+            return;
+        }
+        let mut seed = (self.clock * 1000.0) as u64 ^ 0x9e37_79b9;
+        let mut pick = [0u32; 3];
+        for p in pick.iter_mut() {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            *p = pool.remove((seed % pool.len() as u64) as usize);
+        }
+        log!("ITEMS offered: {pick:?}");
+        self.offer = Some((pick, 1));
+    }
+
+    fn update_items(&mut self) {
+        let focused = game_focused();
+        let keys = [VK_F3, VK_LEFT, VK_RIGHT, VK_RETURN].map(|k| focused && key_down(k.0 as i32));
+        let pressed: Vec<bool> = (0..4).map(|i| keys[i] && !self.item_keys[i]).collect();
+        self.item_keys = keys;
+        if self.test && self.clock > 70.0 && self.items.is_empty() && self.offer.is_none() {
+            self.offer_items(); // test runs show the choice without a boss
+        }
+        if let Some((pick, mut sel)) = self.offer {
+            if pressed[1] {
+                sel = (sel + 2) % 3;
+            }
+            if pressed[2] {
+                sel = (sel + 1) % 3;
+            }
+            if pressed[3] {
+                self.items.push(pick[sel]);
+                self.offer = None;
+                self.dirty = true;
+                self.save();
+                log!("ITEM taken: {} ({} owned)", pick[sel], self.items.len());
+                return;
+            }
+            self.offer = Some((pick, sel));
+            return;
+        }
+        if pressed[0] {
+            self.inv_open = if self.inv_open.is_some() { None } else { Some(0) };
+        }
+        if let Some(mut sel) = self.inv_open {
+            let n = self.items.len().max(1);
+            if pressed[1] {
+                sel = (sel + n - 1) % n;
+            }
+            if pressed[2] {
+                sel = (sel + 1) % n;
+            }
+            self.inv_open = Some(sel);
+        }
+    }
+
+    /// Item burns: a share of the target's max HP per second while they last.
+    fn update_burns(&mut self, dt: f32) {
+        let clock = self.clock;
+        let alive = self.alive_ptrs.clone();
+        let mut hits = vec![];
+        for b in self.burns.iter_mut() {
+            if !alive.contains(&b.0) || b.1 <= clock {
+                continue;
+            }
+            b.3 += b.2 * chr_mut(b.0).modules.data.max_hp as f32 * dt;
+            if b.3 >= 1.0 {
+                hits.push((b.0, b.3));
+                b.3 = 0.0;
+            }
+        }
+        self.burns.retain(|b| b.1 > clock && alive.contains(&b.0));
+        for (p, dmg) in hits {
+            let ch = read_chr(chr_mut(p));
+            self.damage(ch, dmg / tuning::DAMAGE_SCALE.max(0.001), "BURN");
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_items(
+        &self,
+        out: &mut Vec<Sprite>,
+        rect: &dyn Fn(f32, f32, f32, f32, [f32; 4], &'static str) -> Sprite,
+        frame: &dyn Fn(&mut Vec<Sprite>, f32, f32, f32, f32, [f32; 4]),
+        gradient: &dyn Fn(&mut Vec<Sprite>, f32, f32, f32, f32, [f32; 4], [f32; 4]),
+        label: &dyn Fn(&mut Vec<Sprite>, &str, f32, f32, f32, [f32; 4]),
+    ) {
+        let gold = [0.78, 0.67, 0.43, 1.0];
+        let gold_dim = [0.42, 0.36, 0.24, 1.0];
+        let white = [0.96, 0.94, 0.90, 1.0];
+        let grey = [0.70, 0.67, 0.60, 1.0];
+        let left = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| label(out, s, x + font::width(s, size) * 0.5, y, size, color);
+        let icon = |out: &mut Vec<Sprite>, id: u32, x: f32, y: f32, size: f32| {
+            let key = if self.c.icons.contains_key(item_icon(id)) { item_icon(id) } else { "white" };
+            out.push(rect(x, y, size, size, [1.0, 1.0, 1.0, 1.0], key));
+        };
+        // the 6 slots in the HUD
+        if let Some(h) = sheet::HUD.iter().find(|h| h.kind == "items") {
+            for i in 0..6 {
+                let (x, y) = (h.x + (i % 3) as f32 * 36.0, h.y + (i / 3) as f32 * 36.0);
+                out.push(rect(x - 1.0, y - 1.0, 34.0, 34.0, gold_dim, "white"));
+                out.push(rect(x, y, 32.0, 32.0, [0.02, 0.03, 0.04, 1.0], "white"));
+                if let Some(&id) = self.items.get(i) {
+                    icon(out, id, x, y, 32.0);
+                }
+            }
+        }
+        // a card: icon, name, stats, passive
+        let card = |out: &mut Vec<Sprite>, id: u32, x: f32, y: f32, w: f32, h: f32, chosen: bool| {
+            frame(out, x, y, w, h, if chosen { gold } else { gold_dim });
+            gradient(out, x, y, w, h, [0.07, 0.12, 0.14, 0.97], [0.01, 0.03, 0.04, 0.98]);
+            let Some(info) = self.item_info(id) else { return };
+            icon(out, id, x + w * 0.5 - 40.0, y + 16.0, 80.0);
+            let mut ty = y + 108.0;
+            for line in wrap(&info.name, w - 24.0, 20.0) {
+                label(out, &line, x + w * 0.5, ty, 20.0, gold);
+                ty += 24.0;
+            }
+            ty += 4.0;
+            for s in &info.stat_lines {
+                left(out, s, x + 14.0, ty, 15.0, white);
+                ty += 19.0;
+            }
+            ty += 6.0;
+            for line in wrap(&info.text, w - 28.0, 13.0).into_iter().take(((y + h - ty - 10.0) / 16.0).max(0.0) as usize) {
+                left(out, &line, x + 14.0, ty, 13.0, grey);
+                ty += 16.0;
+            }
+        };
+        if let Some((pick, sel)) = self.offer {
+            out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.55], "white"));
+            label(out, "JEFE DERROTADO: ELIGE UN OBJETO", 960.0, 255.0, 30.0, gold);
+            for (i, &id) in pick.iter().enumerate() {
+                card(out, id, 960.0 - 490.0 + i as f32 * 340.0, 310.0, 300.0, 380.0, i == sel);
+            }
+            label(out, "Izquierda/Derecha: elegir  ·  Enter: quedarte con él", 960.0, 720.0, 17.0, grey);
+        } else if let Some(sel) = self.inv_open {
+            out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.45], "white"));
+            frame(out, 560.0, 180.0, 800.0, 600.0, gold);
+            gradient(out, 560.0, 180.0, 800.0, 600.0, [0.07, 0.12, 0.14, 0.97], [0.01, 0.03, 0.04, 0.98]);
+            label(out, "OBJETOS", 960.0, 198.0, 28.0, gold);
+            if self.items.is_empty() {
+                label(out, "Todavía no tienes objetos: derrota a un jefe para elegir uno.", 960.0, 420.0, 18.0, grey);
+            }
+            for i in 0..6 {
+                let x = 960.0 - 3.0 * 76.0 + i as f32 * 76.0 + 6.0;
+                frame(out, x, 250.0, 64.0, 64.0, if i == sel && i < self.items.len() { gold } else { gold_dim });
+                out.push(rect(x, 250.0, 64.0, 64.0, [0.02, 0.03, 0.04, 1.0], "white"));
+                if let Some(&id) = self.items.get(i) {
+                    icon(out, id, x, 250.0, 64.0);
+                }
+            }
+            if let Some(&id) = self.items.get(sel) {
+                card(out, id, 760.0, 340.0, 400.0, 380.0, true);
+            }
+            label(out, "Izquierda/Derecha: ver  ·  F3: cerrar", 960.0, 752.0, 16.0, grey);
+        }
     }
 }

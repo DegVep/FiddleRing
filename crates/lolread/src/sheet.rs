@@ -125,17 +125,18 @@ pub const ASSETS: &[Asset] = &[
 
 pub struct HudItem { pub id: &'static str, pub kind: &'static str, pub source: &'static str, pub x: f32, pub y: f32, pub w: f32, pub h: f32, pub binding: &'static str }
 pub const HUD: &[HudItem] = &[
-    HudItem { id: "panel", kind: "rect", source: "computed", x: 710.0, y: 930.0, w: 500.0, h: 140.0, binding: "always" },
+    HudItem { id: "panel", kind: "rect", source: "computed", x: 645.0, y: 930.0, w: 630.0, h: 140.0, binding: "always" },
     HudItem { id: "title", kind: "title", source: "computed", x: 960.0, y: 904.0, w: 0.0, h: 20.0, binding: "champion_name" },
     HudItem { id: "castbar", kind: "castbar", source: "computed", x: 810.0, y: 868.0, w: 300.0, h: 20.0, binding: "channel" },
-    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 726.0, y: 944.0, w: 96.0, h: 96.0, binding: "always" },
-    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 726.0, y: 1048.0, w: 96.0, h: 10.0, binding: "xp_fraction" },
-    HudItem { id: "level", kind: "text", source: "computed", x: 800.0, y: 1018.0, w: 30.0, h: 30.0, binding: "champion_level" },
-    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 846.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:q" },
-    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 942.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:w" },
-    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 1038.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:e" },
-    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1134.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
-    HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 846.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
+    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 661.0, y: 944.0, w: 96.0, h: 96.0, binding: "always" },
+    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 661.0, y: 1048.0, w: 96.0, h: 10.0, binding: "xp_fraction" },
+    HudItem { id: "level", kind: "text", source: "computed", x: 735.0, y: 1018.0, w: 30.0, h: 30.0, binding: "champion_level" },
+    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 781.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:q" },
+    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 877.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:w" },
+    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 973.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:e" },
+    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1069.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
+    HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 781.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
+    HudItem { id: "items", kind: "items", source: "computed", x: 1145.0, y: 946.0, w: 104.0, h: 70.0, binding: "items" },
     HudItem { id: "level_up", kind: "levelup", source: "computed", x: 6.0, y: -32.0, w: 48.0, h: 26.0, binding: "abilities" },
 ];
 
@@ -247,6 +248,21 @@ pub const VFX_EVENTS: &[VfxEvent] = &[
     VfxEvent { id: "r_hit", key: "FiddleSticks_R_Tar", attach: "target", scale: 1.0 },
 ];
 
+pub struct ItemRow { pub id: u32, pub effect: &'static str, pub value: f32 }
+pub const ITEMS: &[ItemRow] = &[
+    ItemRow { id: 6653, effect: "burn", value: 0.02 },
+    ItemRow { id: 2503, effect: "burn", value: 0.015 },
+    ItemRow { id: 3118, effect: "r_haste", value: 20.0 },
+    ItemRow { id: 3089, effect: "ap_mult", value: 0.3 },
+    ItemRow { id: 3135, effect: "dmg_mult", value: 0.15 },
+    ItemRow { id: 4645, effect: "low_hp_mult", value: 0.2 },
+    ItemRow { id: 3116, effect: "slow", value: 0.3 },
+    ItemRow { id: 3157, effect: "none", value: 0.0 },
+    ItemRow { id: 4629, effect: "none", value: 0.0 },
+    ItemRow { id: 3165, effect: "low_hp_mult", value: 0.1 },
+    ItemRow { id: 4633, effect: "dmg_mult", value: 0.08 },
+];
+
 pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }
 pub const SKIN_THEMES: &[SkinTheme] = &[
     SkinTheme { id: "base", matches: "skin:0", hue: -1.0, sat: 1.0, val: 1.0 },
@@ -353,4 +369,6 @@ pub mod tuning {
     pub const HIDE_ER_BARS: f32 = 1.0;
     /// Elden Ring's equipment HUD (weapons, flasks, spells, quick items) is hidden (frontend_values.enable_equip_hud off each frame, while hide_er_bars is on) (1 = on)
     pub const HIDE_ER_EQUIP: f32 = 1.0;
+    /// after a boss dies, the item choice opens once every boss health bar has been gone this long (a boss's second phase keeps its bar) (s)
+    pub const ITEM_OFFER_DELAY: f32 = 2.0;
 }

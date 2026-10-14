@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 11;
+pub const CACHE_VERSION: u32 = 12;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {
@@ -108,6 +108,20 @@ pub struct Cache {
     pub skins: Vec<SkinInfo>,
     /// the base skin's League particle systems used by the vfx_events sheet
     pub vfx: crate::vfx::VfxLib,
+    /// the items sheet's League items, from the client (icons in `icons` as item_<id>)
+    pub items: Vec<ItemInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ItemInfo {
+    pub id: u32,
+    pub name: String,
+    /// stat lines as the client words them ("80 de poder de habilidad")
+    pub stat_lines: Vec<String>,
+    /// its passive / active, plain text
+    pub text: String,
+    pub ap: f32,
+    pub haste: f32,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

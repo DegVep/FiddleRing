@@ -70,6 +70,8 @@ def preflight(release=False, verify_path=None):
         ref(f"er_actions[{r['id']}].use", r["use"], {"Fiddlesticks", "blocked", "kept"})
     for r in s["er_menus"]["rows"]:
         ref(f"er_menus[{r['id']}].action", r["action"], {"hide", "close", "keep", "hud"})
+    for r in s["items"]["rows"]:
+        ref(f"items[{r['id']}].effect", r["effect"], {"burn", "slow", "ap_mult", "dmg_mult", "low_hp_mult", "r_haste", "none"})
     for r in s["vfx_events"]["rows"]:
         if not (r["attach"] in ("caster", "target", "point", "missile", "beam", "fly_to_caster") or r["attach"].startswith("bone:")):
             problems.append(f"vfx_events[{r['id']}].attach: '{r['attach']}' unknown")
@@ -224,6 +226,13 @@ def gen():
     out.append("pub const VFX_EVENTS: &[VfxEvent] = &[")
     for r in s["vfx_events"]["rows"]:
         out.append(f"    VfxEvent {{ id: {rs_str(r['id'])}, key: {rs_str(r['key'])}, attach: {rs_str(r['attach'])}, scale: {float(r['scale'])} }},")
+    out.append("];")
+    out.append("")
+
+    out.append("pub struct ItemRow { pub id: u32, pub effect: &'static str, pub value: f32 }")
+    out.append("pub const ITEMS: &[ItemRow] = &[")
+    for r in s["items"]["rows"]:
+        out.append(f"    ItemRow {{ id: {int(r['id'])}, effect: {rs_str(r['effect'])}, value: {float(r['value'])} }},")
     out.append("];")
     out.append("")
 

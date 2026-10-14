@@ -229,6 +229,12 @@
       "value": 1.0,
       "unit": "1 = on",
       "why": "Elden Ring's equipment HUD (weapons, flasks, spells, quick items) is hidden (frontend_values.enable_equip_hud off each frame, while hide_er_bars is on)"
+    },
+    {
+      "id": "item_offer_delay",
+      "value": 2.0,
+      "unit": "s",
+      "why": "after a boss dies, the item choice opens once every boss health bar has been gone this long (a boss's second phase keeps its bar)"
     }
   ]
 }

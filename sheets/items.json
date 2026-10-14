@@ -1,0 +1,78 @@
+{
+  "sheet": "items",
+  "doc": "League items Fiddlesticks builds, offered three at a time when a boss dies (max 6 owned). id = League item id: name, description, stats and icon come from the player's League client (items.json, es). Their ability power and ability haste apply; HP/armor/mana do not (Elden Ring keeps its own). effect = a simple version of the item's passive: burn (share of max HP per second for 3 s on ability hits), slow (on ability hits, 1 s), ap_mult, dmg_mult (ability damage), low_hp_mult (ability damage on targets under 40% HP), r_haste (Crowstorm ability haste), none.",
+  "columns": [
+    "id",
+    "effect",
+    "value",
+    "note"
+  ],
+  "rows": [
+    {
+      "id": 6653,
+      "effect": "burn",
+      "value": 0.02,
+      "note": "Tormento de Liandry: abilities burn for 3 s, value = share of the target's max HP per second"
+    },
+    {
+      "id": 2503,
+      "effect": "burn",
+      "value": 0.015,
+      "note": "Antorcha de fuego negro: abilities burn for 3 s, value = share of max HP per second"
+    },
+    {
+      "id": 3118,
+      "effect": "r_haste",
+      "value": 20,
+      "note": "Malignidad: value = extra ability haste for Crowstorm"
+    },
+    {
+      "id": 3089,
+      "effect": "ap_mult",
+      "value": 0.3,
+      "note": "Sombrero mortal de Rabadon: value = extra share of total ability power"
+    },
+    {
+      "id": 3135,
+      "effect": "dmg_mult",
+      "value": 0.15,
+      "note": "Baston del Vacio (magic penetration): value = extra ability damage"
+    },
+    {
+      "id": 4645,
+      "effect": "low_hp_mult",
+      "value": 0.2,
+      "note": "Llamasombra: value = extra ability damage on targets under 40% HP"
+    },
+    {
+      "id": 3116,
+      "effect": "slow",
+      "value": 0.3,
+      "note": "Cetro de cristal de Rylai: abilities slow by value for 1 s"
+    },
+    {
+      "id": 3157,
+      "effect": "none",
+      "value": 0,
+      "note": "Reloj de arena de Zhonya: stats only"
+    },
+    {
+      "id": 4629,
+      "effect": "none",
+      "value": 0,
+      "note": "Impulso cosmico: stats only"
+    },
+    {
+      "id": 3165,
+      "effect": "low_hp_mult",
+      "value": 0.1,
+      "note": "Morellonomicon: value = extra ability damage on targets under 40% HP"
+    },
+    {
+      "id": 4633,
+      "effect": "dmg_mult",
+      "value": 0.08,
+      "note": "Creagrietas: value = extra ability damage"
+    }
+  ]
+}

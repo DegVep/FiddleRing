@@ -161,6 +161,7 @@ fn prepare(args: &[String]) -> Result<String> {
         }
     }
     let skins = list_skins(&main_wad, &champions, &locale, &mut icons);
+    let items = build_items(&champions, &locale, &mut icons);
     let (sounds, audio_assets) = build_audio(&main_wad, locale_wad.as_ref(), &out.join("audio"))?;
     found_assets.extend(audio_assets);
 
@@ -176,6 +177,7 @@ fn prepare(args: &[String]) -> Result<String> {
         sounds: sounds.clone(),
         raven: build_raven(&main_wad, &mut found_assets),
         skins,
+        items,
         vfx: obj(&skin, &skin_obj_path(0)).map(|o| build_vfx(&main_wad, &skin, &o.as_value())).unwrap_or_default(),
     };
     std::fs::write(out.join("fiddlesticks.bin"), cache::save(&c)?)?;
@@ -879,30 +881,7 @@ fn chroma_picture(champions: &Path, n: u32) -> Option<Tex> {
     let dir = champions.ancestors().nth(4)?.join("Plugins/rcp-be-lol-game-data");
     let path = format!("plugins/rcp-be-lol-game-data/global/default/v1/champion-chroma-images/9/{}.png", 9000 + n);
     let bytes = ["default-assets.wad", "default-assets2.wad"].iter().find_map(|w| Wad::open(&dir.join(w)).ok()?.read(&path).ok())?;
-    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
-    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-    let mut r = dec.read_info().ok()?;
-    let mut buf = vec![0; r.output_buffer_size()];
-    let info = r.next_frame(&mut buf).ok()?;
-    let (w, h) = (info.width as usize, info.height as usize);
-    let ch = match info.color_type {
-        png::ColorType::Rgba => 4,
-        png::ColorType::Rgb => 3,
-        png::ColorType::GrayscaleAlpha => 2,
-        _ => 1,
-    };
-    let mut px = Vec::with_capacity(w * h * 4);
-    for i in 0..w * h {
-        let p = &buf[i * ch..i * ch + ch];
-        let (r, g, b, a) = match ch {
-            4 => (p[0], p[1], p[2], p[3]),
-            3 => (p[0], p[1], p[2], 255),
-            2 => (p[0], p[0], p[0], p[1]),
-            _ => (p[0], p[0], p[0], 255),
-        };
-        px.extend_from_slice(&[b, g, r, a]);
-    }
-    Some(Tex { format: texture::DXGI_BGRA8, width: w as u32, height: h as u32, mips: vec![px] })
+    png_tex(&bytes)
 }
 
 /// What a skin changes in the effects and HUD: its own versions of the base particle textures (same name under
@@ -1037,4 +1016,83 @@ fn build_vfx(wad: &Wad, skin: &Bin, skin_obj: &Value) -> lolread::vfx::VfxLib {
     let emitters: usize = lib.systems.values().map(|s| s.emitters.len()).sum();
     println!("vfx: {} keys, {} systems, {emitters} emitters, {} textures, {} meshes", lib.keys.len(), lib.systems.len(), lib.textures.len(), lib.meshes.len());
     lib
+}
+
+/// A PNG as a BGRA texture.
+fn png_tex(bytes: &[u8]) -> Option<Tex> {
+    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut r = dec.read_info().ok()?;
+    let mut buf = vec![0; r.output_buffer_size()];
+    let info = r.next_frame(&mut buf).ok()?;
+    let (w, h) = (info.width as usize, info.height as usize);
+    let ch = match info.color_type {
+        png::ColorType::Rgba => 4,
+        png::ColorType::Rgb => 3,
+        png::ColorType::GrayscaleAlpha => 2,
+        _ => 1,
+    };
+    let mut px = Vec::with_capacity(w * h * 4);
+    for i in 0..w * h {
+        let p = &buf[i * ch..i * ch + ch];
+        let (r, g, b, a) = match ch {
+            4 => (p[0], p[1], p[2], p[3]),
+            3 => (p[0], p[1], p[2], 255),
+            2 => (p[0], p[0], p[0], p[1]),
+            _ => (p[0], p[0], p[0], 255),
+        };
+        px.extend_from_slice(&[b, g, r, a]);
+    }
+    Some(Tex { format: texture::DXGI_BGRA8, width: w as u32, height: h as u32, mips: vec![px] })
+}
+
+/// The items sheet's League items from the player's client (es): name, stat lines, passive text, AP and ability
+/// haste, and their icons (as item_<id> in `icons`).
+fn build_items(champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>) -> Vec<ItemInfo> {
+    let mut out = vec![];
+    let Some(root) = champions.ancestors().nth(4) else { return out };
+    let dir = root.join("Plugins/rcp-be-lol-game-data");
+    let tries = [
+        (dir.join(format!("{locale}-assets.wad")), format!("plugins/rcp-be-lol-game-data/global/{}/v1/items.json", locale.to_ascii_lowercase())),
+        (dir.join("default-assets.wad"), "plugins/rcp-be-lol-game-data/global/default/v1/items.json".to_string()),
+    ];
+    let Some(text) = tries.iter().find_map(|(w, p)| Wad::open(w).ok()?.read(p).ok()).map(|b| String::from_utf8_lossy(&b).into_owned()) else { return out };
+    let wads: Vec<Wad> = ["default-assets2.wad", "default-assets.wad"].iter().filter_map(|w| Wad::open(&dir.join(w)).ok()).collect();
+    for row in sheet::ITEMS {
+        // the object {"id":<id>,"name":"...","description":"...", ... "iconPath":"..."}
+        let Some(at) = text.find(&format!("{{\"id\":{},", row.id)) else { continue };
+        let obj = &text[at..];
+        let field = |k: &str| obj.find(&format!("\"{k}\":\"")).map(|i| json_string(&obj[i + k.len() + 4..])).unwrap_or_default();
+        let name = field("name");
+        let desc = field("description");
+        let stats_part = desc.split("<stats>").nth(1).and_then(|x| x.split("</stats>").next()).unwrap_or("");
+        let stat_lines: Vec<String> = stats_part.split("<br>").map(strip_tags).map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+        let value_of = |what: &str| -> f32 {
+            stat_lines.iter().find(|l| l.contains(what)).and_then(|l| l.split_whitespace().next()).and_then(|n| n.trim_end_matches('%').parse().ok()).unwrap_or(0.0)
+        };
+        let rest = desc.split("</stats>").nth(1).unwrap_or(&desc);
+        let text_plain = strip_tags(&rest.replace("<br>", "\n")).lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n");
+        let icon_path = field("iconPath").to_ascii_lowercase().replace("/lol-game-data/assets/", "plugins/rcp-be-lol-game-data/global/default/");
+        if let Some(t) = wads.iter().find_map(|w| w.read(&icon_path).ok()).and_then(|b| png_tex(&b)) {
+            icons.insert(format!("item_{}", row.id), t);
+        }
+        out.push(ItemInfo { id: row.id, name, ap: value_of("de poder de habilidad"), haste: value_of("de velocidad de habilidad"), stat_lines, text: text_plain });
+    }
+    println!("items: {}", out.iter().map(|i| format!("{} ({} AP, {} haste)", i.name, i.ap, i.haste)).collect::<Vec<_>>().join(", "));
+    out
+}
+
+/// Text without its <tags>.
+fn strip_tags(s: &str) -> String {
+    let mut out = String::new();
+    let mut inside = false;
+    for c in s.chars() {
+        match c {
+            '<' => inside = true,
+            '>' => inside = false,
+            c if !inside => out.push(c),
+            _ => {}
+        }
+    }
+    out
 }
