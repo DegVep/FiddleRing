@@ -346,4 +346,6 @@ pub mod tuning {
     pub const VFX_BLEND_5: f32 = 3.0;
     /// League effects that fly from a drained enemy to Fiddlesticks (W heal) take this long (s)
     pub const VFX_FLY_TIME: f32 = 0.45;
+    /// how fast Fiddlesticks' model turns to a new direction (higher = snappier; ~12 turns most of the way in 0.2 s) instead of snapping (1/s)
+    pub const MODEL_TURN_RATE: f32 = 12.0;
 }

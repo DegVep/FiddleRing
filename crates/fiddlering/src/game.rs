@@ -142,6 +142,8 @@ pub struct Game {
     menu_keys: [bool; 6],
     /// the Elden Ring character whose progress is loaded (save slot + name)
     save_key: Option<String>,
+    /// the model's yaw, easing towards where he faces
+    model_yaw: f32,
     /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
     vfx: Vfx,
     vfx_live: HashMap<(&'static str, usize), u64>,
@@ -335,6 +337,7 @@ impl Game {
             skin_note: None,
             menu_keys: [false; 6],
             save_key: None,
+            model_yaw: 0.0,
             vfx: Vfx::new(),
             vfx_live: HashMap::new(),
             vfx_theme: None,
@@ -1346,7 +1349,11 @@ impl Game {
         let up = [m.1.0, m.1.1, m.1.2];
         let cam_pos = [m.3.0, m.3.1, m.3.2];
 
-        let yaw = face[0].atan2(face[2]) + tuning::MODEL_YAW_DEG.to_radians();
+        // turn towards where he faces over a moment instead of snapping (model_turn_rate: how fast)
+        let want = face[0].atan2(face[2]);
+        let diff = (want - self.model_yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
+        self.model_yaw += diff * (1.0 - (-tuning::MODEL_TURN_RATE * self.dt).exp());
+        let yaw = self.model_yaw + tuning::MODEL_YAW_DEG.to_radians();
         let (s, c) = yaw.sin_cos();
         let k = tuning::MODEL_SCALE;
         let lift = self.leap_lift();
