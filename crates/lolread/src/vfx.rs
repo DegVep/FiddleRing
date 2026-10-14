@@ -99,6 +99,10 @@ pub struct Mult {
     pub uv_scale: Val,
     /// texAddressModeMult 2: the texture repeats (else it is clamped at its edges)
     pub wrap: bool,
+    /// birthUVOffsetMult
+    pub offset: [f32; 2],
+    /// uvScrollClampMult: the scroll stops at one texture width
+    pub scroll_clamp: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -165,6 +169,8 @@ pub struct Emitter {
     pub distortion: bool,
     /// texAddressModeBase 2: the texture repeats (League's default clamps it at its edges)
     pub wrap: bool,
+    /// uvScrollClamp: the scroll stops at one texture width
+    pub scroll_clamp: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -301,6 +307,11 @@ fn emitter(e: &Value) -> Option<Emitter> {
         scroll_integrated: val(m.field("particleIntegratedUvScrollMult"), [0.0; 4]),
         uv_scale: val(m.field("uvScaleMult"), [1.0, 1.0, 0.0, 0.0]),
         wrap: f(m.field("texAddressModeMult")) == Some(2.0),
+        offset: {
+            let o = val(m.field("birthUVOffsetMult"), [0.0; 4]).c;
+            [o[0], o[1]]
+        },
+        scroll_clamp: flag(m.field("uvScrollClampMult")),
     });
     let erosion = e.field("alphaErosionDefinition").map(|a| Erosion {
         map: str_of(a.field("erosionMapName")),
@@ -365,6 +376,7 @@ fn emitter(e: &Value) -> Option<Emitter> {
         child_on_death,
         distortion: e.field("distortionDefinition").is_some(),
         wrap: f(e.field("texAddressModeBase")) == Some(2.0),
+        scroll_clamp: flag(e.field("uvScrollClamp")),
     })
 }
 

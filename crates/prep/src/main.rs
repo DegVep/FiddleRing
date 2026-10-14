@@ -862,7 +862,8 @@ fn material_texture(wad: &Wad, skin: &Bin, link: &Value) -> Option<Tex> {
     let Value::ObjLink(h) = link else { return None };
     let m = skin.objects.iter().find(|o| o.path == *h)?;
     let samplers = m.field("samplerValues")?.list();
-    for want in ["Diffuse_Texture", "Diffuse_Color", "DiffuseTexture", "Diffuse", "Main_Texture", "MainTex"] {
+    // Main_Texture first: some materials (Star Nemesis' demon arms) keep a placeholder in Diffuse_Texture
+    for want in ["Main_Texture", "Diffuse_Texture", "Diffuse_Color", "DiffuseTexture", "Diffuse", "MainTex"] {
         for s in samplers {
             if s.field("TextureName").and_then(|v| v.as_str()).map(|n| n.eq_ignore_ascii_case(want)).unwrap_or(false) {
                 let t = s.field("texturePath")?;

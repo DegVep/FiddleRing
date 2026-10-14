@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 10;
+pub const CACHE_VERSION: u32 = 11;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {

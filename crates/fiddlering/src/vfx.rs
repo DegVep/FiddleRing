@@ -446,7 +446,8 @@ fn emit(em: &Emitter, st: &mut EmitterState, inst: &Ctx, dt: f32, seed: &mut u64
             scale = [scale[0]; 3];
         }
         let life = em.particle_lifetime.sample(fr, &mut r)[0];
-        let life = if life > 0.0 { life } else { span.max(0.5).min(inst.max_age.max(0.5)) } + em.linger.max(0.0);
+        // particleLinger only matters when an effect is cut short: it never stretches a particle's own life (its curves)
+        let life = if life > 0.0 { life } else { span.max(0.5).min(inst.max_age.max(0.5)) };
         let bound = em.bind_weight >= 0.5;
         let (pos, vel) = if bound { (pos, vel) } else { (add(inst.frame.pos, inst.frame.to_world(pos, inst.unit)), inst.frame.to_world(vel, inst.unit)) };
         let frames = em.num_frames.max(1) as f32;
@@ -524,6 +525,7 @@ fn particle(
     let us = em.uv_scale.at(t);
     let scroll = em.uv_scroll.at(t);
     let off = [p.uv0[0] + (p.uv_scroll[0] + scroll[0]) * p.age, p.uv0[1] + (p.uv_scroll[1] + scroll[1]) * p.age];
+    let off = if em.scroll_clamp { off.map(|o| o.clamp(-1.0, 1.0)) } else { off };
     let uv_at = |a: f32, b: f32| -> [f32; 2] { [cell[0] + (a * us[0].max(0.0001) + off[0]) / cols, cell[1] + (b * us[1].max(0.0001) + off[1]) / rows] };
     let uv2_at = |a: f32, b: f32| -> [f32; 2] {
         match &em.mult {
@@ -531,7 +533,12 @@ fn particle(
                 let ms = m.uv_scale.at(t);
                 let sc = m.scroll.at(t);
                 let si = m.scroll_integrated.at(t);
-                [(a * ms[0].max(0.0001)) / m.tex_div[0] + (sc[0] + si[0]) * p.age, (b * ms[1].max(0.0001)) / m.tex_div[1] + (sc[1] + si[1]) * p.age]
+                let mut off = [m.offset[0] + (sc[0] + si[0]) * p.age, m.offset[1] + (sc[1] + si[1]) * p.age];
+                if m.scroll_clamp {
+                    // the mask slides across once instead of repeating
+                    off = off.map(|o| o.clamp(-1.0, 1.0));
+                }
+                [(a * ms[0].max(0.0001)) / m.tex_div[0] + off[0], (b * ms[1].max(0.0001)) / m.tex_div[1] + off[1]]
             }
             None => [0.0, 0.0],
         }
