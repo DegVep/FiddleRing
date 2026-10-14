@@ -169,8 +169,8 @@ pub struct Game {
     no_target_logged: f32,
     /// the Tarnished is slowed by our Bountiful Harvest channel (restored once when it ends)
     w_slowed: bool,
-    /// ability power from the Tarnished's rune level, shown in the HUD
-    ap: f32,
+    /// an enemy is inside Bountiful Harvest's range (the W slot is dark otherwise)
+    w_in_range: bool,
     frame: u64,
     hidden_logged: bool,
     dt: f32,
@@ -317,7 +317,7 @@ impl Game {
             near: Vec::new(),
             no_target_logged: -10.0,
             w_slowed: false,
-            ap: 0.0,
+            w_in_range: false,
             frame: 0,
             hidden_logged: false,
             dt: 0.0,
@@ -518,7 +518,6 @@ impl Game {
         let key_pressed: Vec<bool> = (0..12).map(|i| keys[i] && !self.prev_keys[i]).collect();
         self.prev_keys = keys;
         let player_level_ap = ap;
-        self.ap = ap;
         let player_orient = player.chr_ins.modules.physics.orientation;
         let locked = player.locked_on_enemy.clone();
         let _ = player;
@@ -552,6 +551,8 @@ impl Game {
                 }
             }
         }
+        let w_range = val(&self.c, 2, "CastRange", self.rank(2).max(1)) * tuning::RANGE_SCALE;
+        self.w_in_range = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= w_range);
         let locked_ptr = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize).filter(|p| alive.contains(p));
 
         // kills: characters we damaged whose HP reached 0
@@ -680,7 +681,7 @@ impl Game {
             chr_mut(player_ptr).modules.behavior.animation_speed = if self.w_slowed { tuning::W_SELF_SLOW } else { 1.0 };
         }
         self.update_ult(dt, &me, player_ptr, &hostiles, player_level_ap);
-        self.update_cc();
+        self.update_cc(me.pos);
 
         // locomotion when no one-shot is playing
         let id = self.anim.id();
@@ -821,7 +822,8 @@ impl Game {
                     return;
                 }
             },
-            // like League, Bountiful Harvest can be cast with nobody in range (it simply drains no one)
+            // Bountiful Harvest needs someone to drain (the creator's rule, unlike League)
+            2 if !hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= range) => return,
             2 => (None, me.pos),
             3 => match pick(range) {
                 Some(t) => (Some(t.ptr), t.pos),
@@ -911,7 +913,7 @@ impl Game {
             }
             3 => {
                 let radius = val(&self.c, 3, "castRadius", p.rank) * tuning::RANGE_SCALE * 0.5;
-                let dmg = val(&self.c, 3, "BaseDamage", p.rank) + 0.5 * ap;
+                let dmg = (val(&self.c, 3, "BaseDamage", p.rank) + 0.5 * ap) * tuning::E_DAMAGE_MULT;
                 let slow = -val(&self.c, 3, "SlowAmount", p.rank);
                 let silence = val(&self.c, 3, "SilenceDuration", p.rank);
                 let dir = norm([p.point[0] - me.pos[0], 0.0, p.point[2] - me.pos[2]]);
@@ -997,6 +999,11 @@ impl Game {
             (ch.hp > 0 && len(sub(ch.pos, me.pos)) <= leash).then_some(ch)
         }).collect();
         d.targets = alive.iter().map(|c| c.ptr).collect();
+        if alive.is_empty() {
+            // everyone it drained died or broke free: the channel stops at once
+            self.anim.play("w_end", true);
+            return;
+        }
         let vamp = val(&self.c, 2, "VampPercentage", d.rank) / 100.0;
         let mut healed = 0.0;
         let finished = d.t >= dur;
@@ -1080,7 +1087,7 @@ impl Game {
         };
     }
 
-    fn update_cc(&mut self) {
+    fn update_cc(&mut self, from: V3) {
         // Elden Ring has no fear/silence/slow statuses we can give: freeze actions and slow animation instead
         let clock = self.clock;
         let mut state: HashMap<usize, (bool, bool, f32)> = HashMap::new();
@@ -1100,6 +1107,20 @@ impl Game {
                 self.fx.stream("q_fear", "feared", p, add(ch.pos, [0.0, ch.height + 0.3, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
             }
             c.debug_flags.set_disabled_secondary_actions(fear || silence);
+            if fear {
+                // flee: step away from Fiddlesticks and turn their back on him (ER characters face their -Z)
+                let ph = &mut c.modules.physics;
+                let away = norm([ph.position.0 - from[0], 0.0, ph.position.2 - from[2]]);
+                let step = tuning::FEAR_FLEE_SPEED * dt;
+                ph.position.0 += away[0] * step;
+                ph.position.2 += away[2] * step;
+                ph.chr_proxy_pos_update_requested = true;
+                let half = (-away[0]).atan2(-away[2]) * 0.5;
+                ph.orientation.1 = half.sin();
+                ph.orientation.0 = 0.0;
+                ph.orientation.2 = 0.0;
+                ph.orientation.3 = half.cos();
+            }
             let speed = if fear { tuning::FEAR_ANIM_SPEED } else { 1.0 - slow.clamp(0.0, 0.9) };
             c.modules.behavior.animation_speed = speed;
         }
@@ -1161,6 +1182,16 @@ impl Game {
                     scene.world.push(crate::fx::billboard(e.texture, e.additive, m.pos, e.size_start, self.clock * 6.0, e.color_start, quad_uv(), &view));
                 }
             }
+        }
+        // Terrify: its icon over every feared head
+        for c in self.cc.iter().filter(|c| c.fear && c.until > self.clock) {
+            let ch = read_chr(chr_mut(c.ptr));
+            let bob = 0.08 * (self.clock * 4.0).sin();
+            let at = add(ch.pos, [0.0, ch.height + 0.55 + bob, 0.0]);
+            let k = tuning::FEAR_ICON_SIZE;
+            scene.world.push(crate::fx::billboard("white", false, at, k * 1.12, 0.0, [0.0, 0.0, 0.0, 0.85], quad_uv(), &view));
+            scene.world.push(crate::fx::billboard("white", false, at, k * 1.06, 0.0, [0.78, 0.67, 0.43, 1.0], quad_uv(), &view));
+            scene.world.push(crate::fx::billboard("icon_q", false, at, k, 0.0, [1.0, 1.0, 1.0, 1.0], quad_uv(), &view));
         }
         // Bountiful Harvest: tendrils from his hands to every victim
         if let Some(d) = &self.drain {
@@ -1260,13 +1291,6 @@ impl Game {
             out.extend(font::text(s, cx + 1.5, y + 1.5, size, ink));
             out.extend(font::text(s, cx, y, size, color));
         };
-        let left = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| {
-            label(out, s, x + font::width(s, size) * 0.5, y, size, color);
-        };
-        let right = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| {
-            label(out, s, x - font::width(s, size) * 0.5, y, size, color);
-        };
-
         for item in sheet::HUD {
             let (x, y, w, h) = (item.x, item.y, item.w, item.h);
             match item.kind {
@@ -1296,10 +1320,11 @@ impl Game {
                     let ab = ability(s);
                     let rank = self.rank(s);
                     let cd = self.cd[s];
-                    let ready = rank > 0 && cd <= 0.0;
+                    let off = s == 2 && !self.w_in_range && self.drain.is_none();
+                    let ready = rank > 0 && cd <= 0.0 && !off;
                     let line = if ready { gold } else if rank > 0 { gold_dim } else { [0.25, 0.25, 0.25, 1.0] };
                     frame(out, x, y, w, h, line);
-                    let dim = if rank == 0 { 0.25 } else { 1.0 };
+                    let dim = if rank == 0 || off { 0.25 } else { 1.0 };
                     out.push(rect(x, y, w, h, [dim, dim, dim, 1.0], item.source));
                     if cd > 0.0 && rank > 0 {
                         // League's sweep, as a dark curtain that lifts, with a bright edge
@@ -1351,25 +1376,6 @@ impl Game {
                     frame(out, x, y, w, h, gold);
                     out.push(rect(x, y, w, h, [0.03, 0.05, 0.07, 1.0], "white"));
                     label(out, &format!("{}", self.level), x + w * 0.5, y + 4.0, h - 8.0, white);
-                }
-                "stats" => {
-                    frame(out, x, y, w, h, gold_dim);
-                    out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.45], "white"));
-                    let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
-                    let rows = [
-                        ("Daño", format!("{}", ad.round() as i32), [0.95, 0.62, 0.30, 1.0]),
-                        ("Poder", format!("{}", self.ap.round() as i32), [0.62, 0.55, 0.98, 1.0]),
-                        ("Vel. at.", format!("{:.2}", self.attack_speed()), [0.95, 0.85, 0.40, 1.0]),
-                        ("Alcance", format!("{}", self.stat("attack_range").round() as i32), [0.60, 0.85, 0.95, 1.0]),
-                        ("Bajas", format!("{}", self.kills), [0.90, 0.40, 0.40, 1.0]),
-                    ];
-                    let rh = h / rows.len() as f32;
-                    for (i, (k, v, col)) in rows.iter().enumerate() {
-                        let ry = y + rh * i as f32 + (rh - 15.0) * 0.5;
-                        out.push(rect(x + 6.0, ry + 4.0, 6.0, 6.0, *col, "white"));
-                        left(out, k, x + 17.0, ry, 15.0, [0.78, 0.75, 0.68, 1.0]);
-                        right(out, v, x + w - 7.0, ry, 15.0, white);
-                    }
                 }
                 "levelup" => {
                     for slot_item in sheet::HUD.iter().filter(|h| h.binding.starts_with("ability:")) {

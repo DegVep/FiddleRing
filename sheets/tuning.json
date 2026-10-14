@@ -127,6 +127,24 @@
       "value": 0.3,
       "unit": "x Tarnished animation speed",
       "why": "the Tarnished's movement slows down hard while Bountiful Harvest drains, back to normal when it ends (creator's request)"
+    },
+    {
+      "id": "e_damage_mult",
+      "value": 0.5,
+      "unit": "x",
+      "why": "Reap's League damage (with the AP the rune level gives) one-shot the early guards; the creator found it too strong"
+    },
+    {
+      "id": "fear_flee_speed",
+      "value": 3.5,
+      "unit": "m/s",
+      "why": "Terrify makes the target run away from Fiddlesticks like in League (pushed away each frame, facing away)"
+    },
+    {
+      "id": "fear_icon_size",
+      "value": 0.55,
+      "unit": "m",
+      "why": "Terrify's icon floats over a feared head"
     }
   ]
 }

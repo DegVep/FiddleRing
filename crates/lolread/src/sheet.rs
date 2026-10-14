@@ -125,18 +125,17 @@ pub const ASSETS: &[Asset] = &[
 
 pub struct HudItem { pub id: &'static str, pub kind: &'static str, pub source: &'static str, pub x: f32, pub y: f32, pub w: f32, pub h: f32, pub binding: &'static str }
 pub const HUD: &[HudItem] = &[
-    HudItem { id: "panel", kind: "rect", source: "computed", x: 640.0, y: 930.0, w: 640.0, h: 140.0, binding: "always" },
+    HudItem { id: "panel", kind: "rect", source: "computed", x: 710.0, y: 930.0, w: 500.0, h: 140.0, binding: "always" },
     HudItem { id: "title", kind: "title", source: "computed", x: 960.0, y: 904.0, w: 0.0, h: 20.0, binding: "champion_name" },
     HudItem { id: "castbar", kind: "castbar", source: "computed", x: 810.0, y: 868.0, w: 300.0, h: 20.0, binding: "channel" },
-    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 656.0, y: 944.0, w: 96.0, h: 96.0, binding: "always" },
-    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 656.0, y: 1048.0, w: 96.0, h: 10.0, binding: "xp_fraction" },
-    HudItem { id: "level", kind: "text", source: "computed", x: 730.0, y: 1018.0, w: 30.0, h: 30.0, binding: "champion_level" },
-    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 776.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:q" },
-    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 872.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:w" },
-    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 968.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:e" },
-    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1064.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
-    HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 776.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
-    HudItem { id: "stats", kind: "stats", source: "computed", x: 1140.0, y: 944.0, w: 126.0, h: 114.0, binding: "champion_stats" },
+    HudItem { id: "portrait", kind: "image", source: "icon_portrait", x: 726.0, y: 944.0, w: 96.0, h: 96.0, binding: "always" },
+    HudItem { id: "xp_bar", kind: "bar", source: "computed", x: 726.0, y: 1048.0, w: 96.0, h: 10.0, binding: "xp_fraction" },
+    HudItem { id: "level", kind: "text", source: "computed", x: 800.0, y: 1018.0, w: 30.0, h: 30.0, binding: "champion_level" },
+    HudItem { id: "slot_q", kind: "image", source: "icon_q", x: 846.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:q" },
+    HudItem { id: "slot_w", kind: "image", source: "icon_w", x: 942.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:w" },
+    HudItem { id: "slot_e", kind: "image", source: "icon_e", x: 1038.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:e" },
+    HudItem { id: "slot_r", kind: "image", source: "icon_r", x: 1134.0, y: 942.0, w: 60.0, h: 60.0, binding: "ability:r" },
+    HudItem { id: "hp_bar", kind: "bar", source: "computed", x: 846.0, y: 1040.0, w: 348.0, h: 20.0, binding: "hp_fraction" },
     HudItem { id: "level_up", kind: "levelup", source: "computed", x: 6.0, y: -32.0, w: 48.0, h: 26.0, binding: "abilities" },
 ];
 
@@ -240,4 +239,10 @@ pub mod tuning {
     pub const MELEE_RANGE: f32 = 2.5;
     /// the Tarnished's movement slows down hard while Bountiful Harvest drains, back to normal when it ends (creator's request) (x Tarnished animation speed)
     pub const W_SELF_SLOW: f32 = 0.3;
+    /// Reap's League damage (with the AP the rune level gives) one-shot the early guards; the creator found it too strong (x)
+    pub const E_DAMAGE_MULT: f32 = 0.5;
+    /// Terrify makes the target run away from Fiddlesticks like in League (pushed away each frame, facing away) (m/s)
+    pub const FEAR_FLEE_SPEED: f32 = 3.5;
+    /// Terrify's icon floats over a feared head (m)
+    pub const FEAR_ICON_SIZE: f32 = 0.55;
 }
