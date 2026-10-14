@@ -48,3 +48,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: destroyed effects (missile landed, target gone, stop(), max age) cap every particle to its particleLinger, like League; Praetorian Q missile parts stayed hanging in the air.
 - 2026-10-14: W heal missiles (League W_Mis, little hands) removed; each drain tick shows the effects-sheet sparks on the enemy.
 - 2026-10-14: CC immunity v2: the game clamps sa_durability to its max (log "CC immunity: ... clamped"), so poise alone failed (creator still got staggered). Now also action_flag.action_modifiers_flags.super_armor (TAE action 24) set + poise full at FrameBegin, ChrIns_PreBehaviorSafe and the tick. Unverified in game.
+- 2026-10-14: CC immunity v3: action_flag.damage_level (last hit stagger size) zeroed with super armor, Morgott still staggered him. Unverified.

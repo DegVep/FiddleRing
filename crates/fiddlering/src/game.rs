@@ -236,6 +236,8 @@ fn ability(slot: usize) -> &'static sheet::Ability {
 /// written before the game updates the character and again each frame, so hits never stagger him.
 fn hold_super_armor(c: &mut ChrIns) {
     c.modules.action_flag.action_modifiers_flags.set_super_armor(true);
+    // the last hit's stagger size: none (boss hits like Morgott's go through super armor otherwise)
+    c.modules.action_flag.damage_level = 0;
     let sa = &mut c.modules.super_armor;
     if sa.sa_durability < sa.sa_durability_max {
         sa.sa_durability = sa.sa_durability_max;
