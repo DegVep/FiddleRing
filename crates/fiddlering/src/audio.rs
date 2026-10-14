@@ -19,7 +19,7 @@ struct Wav {
 pub struct Audio {
     _x: IXAudio2,
     master: IXAudio2MasteringVoice,
-    playing: Vec<(IXAudio2SourceVoice, Arc<Vec<u8>>)>,
+    playing: Vec<(IXAudio2SourceVoice, Arc<Vec<u8>>, &'static str)>,
     wavs: HashMap<String, Option<Wav>>,
     dir: PathBuf,
     files: BTreeMap<String, Vec<String>>,
@@ -130,14 +130,27 @@ impl Audio {
                 v.DestroyVoice();
                 return false;
             }
-            self.playing.push((v, data));
+            self.playing.push((v, data, row.id));
         }
         self.last.insert(row.id, Instant::now());
         true
     }
 
+    /// Cuts every playing sound whose sheet id starts with `prefix` (a channel that ended early).
+    pub fn stop(&mut self, prefix: &str) {
+        self.playing.retain(|(v, _, id)| unsafe {
+            if id.starts_with(prefix) {
+                let _ = v.Stop(0, 0);
+                v.DestroyVoice();
+                false
+            } else {
+                true
+            }
+        });
+    }
+
     pub fn update(&mut self) {
-        self.playing.retain(|(v, _)| unsafe {
+        self.playing.retain(|(v, _, _)| unsafe {
             let mut st = XAUDIO2_VOICE_STATE::default();
             v.GetState(&mut st, XAUDIO2_VOICE_NOSAMPLESPLAYED);
             if st.BuffersQueued == 0 {

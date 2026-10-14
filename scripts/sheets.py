@@ -74,7 +74,7 @@ def preflight(release=False, verify_path=None):
     for r in s["abilities"]["rows"]:
         ref(f"abilities[{r['id']}].effect", r["effect"], effect_groups)
     enums = {
-        "trigger": {"missile_head", "missile_trail", "hit", "area", "feared", "tether_beam", "tether_pulse", "tether_flow", "victim", "tick", "heal", "channel", "final", "r_channel", "storm"},
+        "trigger": {"missile_head", "missile_trail", "hit", "area", "feared", "tether_beam", "tether_pulse", "tether_flow", "victim", "tick", "heal", "channel", "final", "r_channel", "storm", "r_leap", "r_land"},
         "render": {"billboard", "stretched", "ground", "beam", "model"},
         "blend": {"add", "alpha"},
         "motion": {"free", "orbit", "home"},
@@ -96,7 +96,7 @@ def preflight(release=False, verify_path=None):
                 float(r["radius"])
             except ValueError:
                 problems.append(f"{w}.radius: '{r['radius']}' is neither a number nor 'ability'")
-        burst = r["trigger"] in ("missile_head", "hit", "area", "final", "tether_beam", "tether_pulse", "tick", "heal")
+        burst = r["trigger"] in ("missile_head", "hit", "area", "final", "tether_beam", "tether_pulse", "tick", "heal", "r_land")
         if burst and r["count"] <= 0:
             problems.append(f"{w}.count: a {r['trigger']} emitter needs count > 0")
         if not burst and r["rate"] <= 0:

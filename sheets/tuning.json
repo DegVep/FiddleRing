@@ -139,6 +139,24 @@
       "value": 0.55,
       "unit": "m",
       "why": "Terrify's icon floats over a feared head"
+    },
+    {
+      "id": "r_leap_time",
+      "value": 0.45,
+      "unit": "s",
+      "why": "after the channel Crowstorm launches him forward (or at the locked target) like a jump (creator's request)"
+    },
+    {
+      "id": "r_leap_distance",
+      "value": 7.0,
+      "unit": "m",
+      "why": "how far the Crowstorm jump carries him with no locked target"
+    },
+    {
+      "id": "r_leap_height",
+      "value": 1.6,
+      "unit": "m",
+      "why": "the arc of the jump (drawn on Fiddlesticks' model; the Tarnished's own position follows the ground)"
     }
   ]
 }

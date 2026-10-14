@@ -113,6 +113,8 @@ struct Drain {
 
 enum Ult {
     Channel { t: f32, rank: u32, target: Option<usize> },
+    /// the jump after the channel
+    Leap { t: f32, rank: u32, from: V3, to: V3 },
     Storm { t: f32, tick: f32, rank: u32 },
 }
 
@@ -169,8 +171,8 @@ pub struct Game {
     no_target_logged: f32,
     /// the Tarnished is slowed by our Bountiful Harvest channel (restored once when it ends)
     w_slowed: bool,
-    /// an enemy is inside Bountiful Harvest's range (the W slot is dark otherwise)
-    w_in_range: bool,
+    /// an enemy is inside Q's / W's range (their slots are dark and they cannot be cast otherwise)
+    in_range: [bool; 5],
     frame: u64,
     hidden_logged: bool,
     dt: f32,
@@ -317,7 +319,7 @@ impl Game {
             near: Vec::new(),
             no_target_logged: -10.0,
             w_slowed: false,
-            w_in_range: false,
+            in_range: [true; 5],
             frame: 0,
             hidden_logged: false,
             dt: 0.0,
@@ -551,8 +553,10 @@ impl Game {
                 }
             }
         }
-        let w_range = val(&self.c, 2, "CastRange", self.rank(2).max(1)) * tuning::RANGE_SCALE;
-        self.w_in_range = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= w_range);
+        for s in [1, 2] {
+            let range = val(&self.c, s, "CastRange", self.rank(s).max(1)) * tuning::RANGE_SCALE;
+            self.in_range[s] = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= range);
+        }
         let locked_ptr = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize).filter(|p| alive.contains(p));
 
         // kills: characters we damaged whose HP reached 0
@@ -611,7 +615,7 @@ impl Game {
         }
 
         // casting
-        let rooted = matches!(self.ult, Some(Ult::Channel { .. }));
+        let rooted = matches!(self.ult, Some(Ult::Channel { .. } | Ult::Leap { .. }));
         if !self.dead && !rooted {
             let mut wanted: Option<usize> = None;
             for slot in 0..5 {
@@ -680,7 +684,7 @@ impl Game {
             self.w_slowed = self.drain.is_some();
             chr_mut(player_ptr).modules.behavior.animation_speed = if self.w_slowed { tuning::W_SELF_SLOW } else { 1.0 };
         }
-        self.update_ult(dt, &me, player_ptr, &hostiles, player_level_ap);
+        self.update_ult(dt, &me, forward, player_ptr, &hostiles, player_level_ap);
         self.update_cc();
 
         // locomotion when no one-shot is playing
@@ -768,8 +772,12 @@ impl Game {
     }
 
     fn cancel_channels(&mut self, player_ptr: usize) {
-        self.drain = None;
-        if matches!(self.ult, Some(Ult::Channel { .. })) {
+        if self.drain.take().is_some() {
+            if let Some(a) = self.audio.as_mut() {
+                a.stop("sfx_w_");
+            }
+        }
+        if matches!(self.ult, Some(Ult::Channel { .. } | Ult::Leap { .. })) {
             chr_mut(player_ptr).debug_flags.set_disabled_movement(false);
         }
         self.ult = None;
@@ -1000,8 +1008,11 @@ impl Game {
         }).collect();
         d.targets = alive.iter().map(|c| c.ptr).collect();
         if alive.is_empty() {
-            // everyone it drained died or broke free: the channel stops at once
+            // everyone it drained died or broke free: the channel stops at once, and so does its sound
             self.anim.play("w_end", true);
+            if let Some(a) = self.audio.as_mut() {
+                a.stop("sfx_w_");
+            }
             return;
         }
         let vamp = val(&self.c, 2, "VampPercentage", d.rank) / 100.0;
@@ -1043,7 +1054,7 @@ impl Game {
         self.drain = Some(d);
     }
 
-    fn update_ult(&mut self, dt: f32, me: &Chr, player_ptr: usize, hostiles: &[Chr], ap: f32) {
+    fn update_ult(&mut self, dt: f32, me: &Chr, forward: V3, player_ptr: usize, hostiles: &[Chr], ap: f32) {
         let Some(u) = self.ult.take() else { return };
         self.ult = match u {
             Ult::Channel { t, rank, target } => {
@@ -1058,16 +1069,38 @@ impl Game {
                     Some(Ult::Channel { t, rank, target })
                 } else {
                     player.debug_flags.set_disabled_movement(false);
-                    // blink onto the locked target's ground position (a point we know is walkable)
-                    if let Some(tp) = target.and_then(|p| Self::find(hostiles, p)) {
-                        let ph = &mut player.modules.physics;
-                        let dir = norm([me.pos[0] - tp.pos[0], 0.0, me.pos[2] - tp.pos[2]]);
-                        ph.position.0 = tp.pos[0] + dir[0] * 1.2;
-                        ph.position.1 = tp.pos[1] + 0.1;
-                        ph.position.2 = tp.pos[2] + dir[2] * 1.2;
-                        ph.chr_proxy_pos_update_requested = true;
-                        log!("R blink to {:?}", tp.pos);
+                    // jump: onto the locked target, else straight ahead
+                    let to = match target.and_then(|p| Self::find(hostiles, p)) {
+                        Some(tp) => {
+                            let back = norm([me.pos[0] - tp.pos[0], 0.0, me.pos[2] - tp.pos[2]]);
+                            add(tp.pos, mul(back, 1.2))
+                        }
+                        None => add(me.pos, mul(forward, tuning::R_LEAP_DISTANCE)),
+                    };
+                    let dir = norm([to[0] - me.pos[0], 0.0, to[2] - me.pos[2]]);
+                    if flat(sub(to, me.pos)) > 0.3 {
+                        self.face = Some((dir, tuning::R_LEAP_TIME + 0.3));
                     }
+                    self.anim.play("r_channel", true);
+                    log!("R leap {:?} -> {:?}", me.pos, to);
+                    Some(Ult::Leap { t: 0.0, rank, from: me.pos, to })
+                }
+            }
+            Ult::Leap { t, rank, from, to } => {
+                let player = chr_mut(player_ptr);
+                let t = t + dt;
+                let f = (t / tuning::R_LEAP_TIME).min(1.0);
+                // ease out: a fast launch that settles; x/z only, the game keeps him on the ground
+                let e = 1.0 - (1.0 - f) * (1.0 - f);
+                let ph = &mut player.modules.physics;
+                ph.position.0 = from[0] + (to[0] - from[0]) * e;
+                ph.position.2 = from[2] + (to[2] - from[2]) * e;
+                ph.chr_proxy_pos_update_requested = true;
+                self.fx.stream("r_crowstorm", "r_leap", 2, add(me.pos, [0.0, 1.0 + self.leap_lift(), 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+                if f < 1.0 {
+                    Some(Ult::Leap { t, rank, from, to })
+                } else {
+                    self.fx.burst("r_crowstorm", "r_land", me.pos, [0.0, 1.0, 0.0], 0.0);
                     self.sound("sfx_r_storm");
                     Some(Ult::Storm { t: 0.0, tick: 0.0, rank })
                 }
@@ -1147,11 +1180,12 @@ impl Game {
         let yaw = face[0].atan2(face[2]) + tuning::MODEL_YAW_DEG.to_radians();
         let (s, c) = yaw.sin_cos();
         let k = tuning::MODEL_SCALE;
+        let lift = self.leap_lift();
         let world: M4 = [
             k * c * tuning::MODEL_MIRROR_X, 0., -k * s * tuning::MODEL_MIRROR_X, 0.,
             0., k, 0., 0.,
             k * s, 0., k * c, 0.,
-            me.pos[0], me.pos[1], me.pos[2], 1.,
+            me.pos[0], me.pos[1] + lift, me.pos[2], 1.,
         ];
         let palette = self.anim.palette(&self.c);
         let soul = self.joint_world(&palette, &world, "Demon_Soul").unwrap_or(add(me.pos, [0.0, 1.0, 0.0]));
@@ -1279,6 +1313,17 @@ impl Game {
         }
     }
 
+    /// Height of the Crowstorm jump's arc right now (0 when not jumping).
+    fn leap_lift(&self) -> f32 {
+        match self.ult {
+            Some(Ult::Leap { t, .. }) => {
+                let f = (t / tuning::R_LEAP_TIME).clamp(0.0, 1.0);
+                4.0 * tuning::R_LEAP_HEIGHT * f * (1.0 - f)
+            }
+            _ => 0.0,
+        }
+    }
+
     fn attack_speed(&self) -> f32 {
         let lvl_as = self.stat("attack_speed_per_level") / 100.0 * growth(self.level);
         (self.stat("attack_speed") * (1.0 + lvl_as)).max(0.2)
@@ -1292,6 +1337,7 @@ impl Game {
         match self.ult {
             Some(Ult::Channel { t, rank, .. }) => Some(("Tormenta de cuervos", t / val(&self.c, 4, "ChannelTime", rank).max(0.01))),
             Some(Ult::Storm { t, rank, .. }) => Some(("Tormenta de cuervos", 1.0 - t / val(&self.c, 4, "Duration", rank).max(0.01))),
+            Some(Ult::Leap { .. }) => Some(("Tormenta de cuervos", 1.0)),
             None => None,
         }
     }
@@ -1358,7 +1404,7 @@ impl Game {
                     let ab = ability(s);
                     let rank = self.rank(s);
                     let cd = self.cd[s];
-                    let off = s == 2 && !self.w_in_range && self.drain.is_none();
+                    let off = !self.in_range[s] && !(s == 2 && self.drain.is_some());
                     let ready = rank > 0 && cd <= 0.0 && !off;
                     let line = if ready { gold } else if rank > 0 { gold_dim } else { [0.25, 0.25, 0.25, 1.0] };
                     frame(out, x, y, w, h, line);
