@@ -220,6 +220,7 @@ pub const ABILITY_ACTION_BITS: &[u32] = &[0, 1, 2, 3, 28];
 /// Elden Ring screens (er_menus sheet): hide Fiddlesticks on them / close them as they open.
 pub const HIDE_ON_UI: &[usize] = &[6, 37, 61];
 pub const CLOSE_UI: &[usize] = &[29, 31];
+pub const HUD_HIDE_UI: &[usize] = &[1];
 
 pub struct VfxEvent { pub id: &'static str, pub key: &'static str, pub attach: &'static str, pub scale: f32 }
 pub const VFX_EVENTS: &[VfxEvent] = &[

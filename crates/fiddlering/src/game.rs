@@ -207,6 +207,8 @@ pub struct Game {
     hidden_logged: bool,
     /// the game draws the Tarnished (false during cutscenes)
     player_drawn: bool,
+    /// the HUD stays hidden until then (dialogue)
+    hud_hidden_until: f32,
     dt: f32,
     ui_seen: u128,
     hud_seen: i32,
@@ -392,6 +394,7 @@ impl Game {
             in_range: [true; 5],
             frame: 0,
             player_drawn: true,
+            hud_hidden_until: 0.0,
             hidden_logged: false,
             dt: 0.0,
             ui_seen: 0,
@@ -1499,7 +1502,13 @@ impl Game {
                 s.color = [c[0], c[1], c[2], s.color[3]];
             }
         }
-        self.build_hud(&mut scene, &me);
+        // talking to someone (er_menus action hud): no HUD over the dialogue, nor between its lines
+        if sheet::HUD_HIDE_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
+            self.hud_hidden_until = self.clock + 1.5;
+        }
+        if self.clock >= self.hud_hidden_until {
+            self.build_hud(&mut scene, &me);
+        }
         if let Some((name, at)) = &self.shot_at {
             if self.clock >= *at {
                 let dir = crate::log::data_dir().join("shots");

@@ -52,3 +52,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: progress per Elden Ring character (GameMan.save_slot + PlayerGameData.character_name): progress_<slot>_<name>.txt, switched when another save loads; old progress.txt migrates to the first loaded character with ER level > 15.
 - 2026-10-14: model turns smoothly (exponential ease of yaw, tuning model_turn_rate 12/s) instead of snapping; fixed a literal NUL char in game.rs.
 - 2026-10-14: hide Fiddlesticks (and HUD) while the game does not draw the Tarnished (chr_flags1c5.enable_render false: cutscenes); log "player drawn by the game". Unverified: if it is false in normal play Fiddlesticks would vanish. Also fixed the literal NUL char for real.
+- 2026-10-14: HUD hidden while talking (er_menus action hud; ui 1 = subtitles, unverified) and 1.5 s after.

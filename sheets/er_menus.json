@@ -1,6 +1,6 @@
 {
   "sheet": "er_menus",
-  "doc": "Elden Ring screens by CSMenuManImp.ui_states index (seen in game through the DLL's UI log). action: hide = Fiddlesticks and his HUD are not drawn; close = FiddleRing closes the screen as it opens (League champions have no equipment or inventory); keep = nothing. verified = id seen for that screen in game.",
+  "doc": "Elden Ring screens by CSMenuManImp.ui_states index (seen in game through the DLL's UI log). action: hide = Fiddlesticks and his HUD are not drawn; close = FiddleRing closes the screen as it opens (League champions have no equipment or inventory); keep = nothing. verified = id seen for that screen in game. action hud = hide only the mod's HUD (Fiddlesticks stays).",
   "columns": [
     "id",
     "ui_index",
@@ -50,6 +50,13 @@
       "screen": "Map (M / G)",
       "action": "hide",
       "verified": "yes"
+    },
+    {
+      "id": "subtitles",
+      "ui_index": 1,
+      "screen": "dialogue / cutscene subtitles (talking to an NPC)",
+      "action": "hud",
+      "verified": "no"
     }
   ]
 }
