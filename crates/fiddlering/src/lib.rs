@@ -43,7 +43,7 @@ unsafe extern "system" fn boot_thread(_: *mut std::ffi::c_void) -> u32 {
     0
 }
 
-fn dll_dir() -> PathBuf {
+pub(crate) fn dll_dir() -> PathBuf {
     let mut module = HMODULE::default();
     let mut buf = [0u16; 1024];
     let n = unsafe {
@@ -59,10 +59,11 @@ fn dll_dir() -> PathBuf {
 
 fn load_cache() -> Option<lolread::cache::Cache> {
     let path = log::data_dir().join("cache").join("fiddlesticks.bin");
-    if !path.exists() {
-        // Melty's setup step normally made it; otherwise build it now from the player's League
+    let readable = std::fs::read(&path).map_err(anyhow::Error::from).and_then(|b| lolread::cache::load(&b)).is_ok();
+    if !readable {
+        // Melty's setup step normally made it; otherwise (or after a mod update changed its format) build it now
         let prep = dll_dir().join("fiddlering-prep.exe");
-        log!("cache missing, running {}", prep.display());
+        log!("cache missing or outdated, running {}", prep.display());
         match std::process::Command::new(&prep).output() {
             Ok(o) => log!("prep: {}{}", String::from_utf8_lossy(&o.stdout).trim(), String::from_utf8_lossy(&o.stderr).trim()),
             Err(e) => log!("prep failed to start: {e}"),

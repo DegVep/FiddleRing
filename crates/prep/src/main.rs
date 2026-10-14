@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--dump" | "--magic" | "--has" | "--bnk")) {
+    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--extract" | "--dump" | "--magic" | "--has" | "--bnk")) {
         if let Err(e) = dev::run(&args) {
             eprintln!("{e:#}");
             std::process::exit(1);
@@ -26,6 +26,16 @@ fn main() {
         let r = render::render(&args[2], &args[3], args[4].parse().unwrap_or(0.0), &args[5]);
         if let Err(e) = r {
             eprintln!("{e:#}");
+        }
+        return;
+    }
+    if let Some(n) = arg_value(&args, "--skin").and_then(|n| n.parse::<u32>().ok()) {
+        match prepare_skin(&args, n) {
+            Ok(msg) => println!("{msg}"),
+            Err(e) => {
+                eprintln!("skin {n}: {e:#}");
+                std::process::exit(1);
+            }
         }
         return;
     }
@@ -113,6 +123,8 @@ fn prepare(args: &[String]) -> Result<String> {
     }
     std::fs::create_dir_all(out.join("audio"))?;
     let _ = std::fs::remove_file(&ready);
+    // skins built for the previous League or cache are rebuilt when chosen again
+    let _ = std::fs::remove_dir_all(out.join("skins"));
 
     let main_wad = Wad::open(&main_wad_path)?;
     let locale_wad = match &locale_wad_path {
@@ -133,8 +145,8 @@ fn prepare(args: &[String]) -> Result<String> {
     let champ = bin::parse(&main_wad.read("data/characters/fiddlesticks/fiddlesticks.bin")?)?;
     found_assets.push("champ_bin".into());
 
-    let model = build_model(&main_wad, &skin, &mut found_assets)?;
-    let (clips, found_clips) = build_clips(&main_wad, &anim_bin, &model)?;
+    let model = build_model(&main_wad, &skin, &skin_obj_path(0), &mut found_assets)?;
+    let (clips, found_clips) = build_clips(&main_wad, &anim_bin, fnv1a("Characters/FiddleSticks/Animations/Skin0"), &model)?;
     let (spells, stats) = build_spells(&champ)?;
     let mut icons = BTreeMap::new();
     for a in sheet::ASSETS.iter().filter(|a| a.kind == "tex" || a.kind == "dds") {
@@ -148,6 +160,7 @@ fn prepare(args: &[String]) -> Result<String> {
             }
         }
     }
+    let skins = list_skins(&main_wad, &champions, &locale, &mut icons);
     let (sounds, audio_assets) = build_audio(&main_wad, locale_wad.as_ref(), &out.join("audio"))?;
     found_assets.extend(audio_assets);
 
@@ -162,6 +175,7 @@ fn prepare(args: &[String]) -> Result<String> {
         icons,
         sounds: sounds.clone(),
         raven: build_raven(&main_wad, &mut found_assets),
+        skins,
     };
     std::fs::write(out.join("fiddlesticks.bin"), cache::save(&c)?)?;
 
@@ -217,22 +231,32 @@ fn to_tex(t: texture::Texture) -> Tex {
     Tex { format: t.format, width: t.width, height: t.height, mips: t.mips }
 }
 
-fn build_model(wad: &Wad, skin: &Bin, found: &mut Vec<String>) -> Result<Model> {
-    let o = obj(skin, "Characters/FiddleSticks/Skins/Skin0").context("skin0 object missing")?.as_value();
+fn build_model(wad: &Wad, skin: &Bin, obj_path: &str, found: &mut Vec<String>) -> Result<Model> {
+    let o = obj(skin, obj_path).with_context(|| format!("{obj_path} missing"))?.as_value();
     let mp = o.field("skinMeshProperties").context("skinMeshProperties missing")?;
     let skl = mesh::read_skl(&wad.read(mp.field("skeleton").and_then(|v| v.as_str()).context("skeleton")?)?)?;
     found.push("skeleton".into());
     let skn = mesh::read_skn(&wad.read(mp.field("simpleSkin").and_then(|v| v.as_str()).context("simpleSkin")?)?)?;
     found.push("mesh".into());
-    let body = texture::read_tex(&read_link(wad, mp.field("texture").context("texture")?)?)?;
+    // the body texture, or the diffuse of the skin's material for newer skins
+    let body = match mp.field("texture") {
+        Some(t) => to_tex(texture::read_any(&read_link(wad, t)?)?),
+        None => mp.field("material").and_then(|m| material_texture(wad, skin, m)).context("texture")?,
+    };
     found.push("tex_body".into());
-    let mut textures = vec![to_tex(body)];
+    let mut textures = vec![body];
     let mut submesh_tex: HashMap<String, u32> = HashMap::new();
     for ov in mp.field("materialOverride").map(|v| v.list()).unwrap_or(&[]) {
-        if let (Some(t), Some(sm)) = (ov.field("texture"), ov.field("Submesh").and_then(|v| v.as_str())) {
-            if let Ok(t) = read_link(wad, t).and_then(|b| texture::read_tex(&b)) {
+        let Some(sm) = ov.field("Submesh").and_then(|v| v.as_str()) else { continue };
+        let tex = match (ov.field("texture"), ov.field("material")) {
+            (Some(t), _) => read_link(wad, t).ok().and_then(|b| texture::read_any(&b).ok()).map(to_tex),
+            (None, Some(m)) => material_texture(wad, skin, m),
+            _ => None,
+        };
+        {
+            if let Some(t) = tex {
                 submesh_tex.insert(sm.to_ascii_lowercase(), textures.len() as u32);
-                textures.push(to_tex(t));
+                textures.push(t);
                 if sm.eq_ignore_ascii_case("weapon") {
                     found.push("tex_weapon".into());
                 }
@@ -323,8 +347,8 @@ fn build_raven(wad: &Wad, found: &mut Vec<String>) -> Option<(Model, Clip)> {
     Some((model, clip))
 }
 
-fn build_clips(wad: &Wad, anim_bin: &Bin, model: &Model) -> Result<(Vec<Clip>, Vec<String>)> {
-    let graph = obj(anim_bin, "Characters/FiddleSticks/Animations/Skin0").context("animation graph missing")?.as_value();
+fn build_clips(wad: &Wad, anim_bin: &Bin, graph: u32, model: &Model) -> Result<(Vec<Clip>, Vec<String>)> {
+    let graph = anim_bin.objects.iter().find(|o| o.path == graph).context("animation graph missing")?.as_value();
     let Some(Value::Map(clips)) = graph.field("mClipDataMap") else { bail!("mClipDataMap missing") };
     let joint_by_hash: HashMap<u32, u16> =
         model.joints.iter().enumerate().map(|(i, j)| (mesh::elf_hash(&j.name), i as u16)).collect();
@@ -581,4 +605,251 @@ fn decode_wems(pending: &[(u32, PathBuf)]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------- skins
+
+fn skin_bin_path(n: u32) -> String {
+    format!("data/characters/fiddlesticks/skins/skin{n}.bin")
+}
+
+fn skin_obj_path(n: u32) -> String {
+    format!("Characters/FiddleSticks/Skins/Skin{n}")
+}
+
+/// The skin a chroma recolours, read from its mesh folder (Skins/Skin09/... -> 9, Skins/Base/... -> 0).
+fn mesh_parent(skin: &Value, n: u32) -> u32 {
+    let Some(p) = skin.field("skinMeshProperties").and_then(|m| m.field("simpleSkin")).and_then(|v| v.as_str()) else { return n };
+    let lower = p.to_ascii_lowercase();
+    let Some(rest) = lower.split("/skins/").nth(1) else { return n };
+    if rest.starts_with("base/") {
+        return 0;
+    }
+    rest.strip_prefix("skin").and_then(|r| r.split('/').next()).and_then(|d| d.parse().ok()).unwrap_or(n)
+}
+
+/// Skin names in the player's client language, from the League client's own champion data (champions/9.json).
+fn client_skin_names(champions: &Path, locale: &str) -> HashMap<u32, String> {
+    let mut out = HashMap::new();
+    let Some(root) = champions.ancestors().nth(4) else { return out };
+    let dir = root.join("Plugins/rcp-be-lol-game-data");
+    let tries = [
+        (dir.join(format!("{locale}-assets.wad")), format!("plugins/rcp-be-lol-game-data/global/{}/v1/champions/9.json", locale.to_ascii_lowercase())),
+        (dir.join("default-assets.wad"), "plugins/rcp-be-lol-game-data/global/default/v1/champions/9.json".to_string()),
+    ];
+    for (wad, path) in tries {
+        let Ok(text) = Wad::open(&wad).and_then(|w| w.read(&path)).map(|b| String::from_utf8_lossy(&b).into_owned()) else { continue };
+        // every skin and chroma object is {"id":9NNN, ... "name":"..."}: take the first name after each id
+        for (at, _) in text.match_indices("\"id\":") {
+            let digits: String = text[at + 5..].chars().take_while(|c| c.is_ascii_digit()).collect();
+            let Ok(id) = digits.parse::<u32>() else { continue };
+            if !(9000..10000).contains(&id) || out.contains_key(&(id - 9000)) {
+                continue;
+            }
+            let Some(np) = text[at..].find("\"name\":\"") else { continue };
+            out.insert(id - 9000, json_string(&text[at + np + 8..]));
+        }
+        if !out.is_empty() {
+            break;
+        }
+    }
+    out
+}
+
+/// A JSON string body up to its closing quote, unescaped.
+fn json_string(s: &str) -> String {
+    let mut out = String::new();
+    let mut it = s.chars();
+    while let Some(c) = it.next() {
+        match c {
+            '"' => break,
+            '\\' => match it.next() {
+                Some('u') => {
+                    let h: String = it.by_ref().take(4).collect();
+                    if let Some(ch) = u32::from_str_radix(&h, 16).ok().and_then(char::from_u32) {
+                        out.push(ch);
+                    }
+                }
+                Some('n') => out.push(' '),
+                Some(x) => out.push(x),
+                None => break,
+            },
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Every skin and chroma in the install, with its client name and its round icon.
+fn list_skins(wad: &Wad, champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>) -> Vec<SkinInfo> {
+    let names = client_skin_names(champions, locale);
+    let mut out = vec![];
+    for n in 0..100 {
+        if wad.get(&skin_bin_path(n)).is_none() {
+            continue;
+        }
+        let Ok(b) = wad.read(&skin_bin_path(n)).and_then(|d| bin::parse(&d)) else { continue };
+        let Some(o) = obj(&b, &skin_obj_path(n)).map(|o| o.as_value()) else { continue };
+        if let Some(t) = o.field("iconCircle").and_then(|v| read_link(wad, v).ok()).and_then(|b| texture::read_any(&b).ok()) {
+            icons.insert(format!("skin_icon_{n}"), to_tex(t));
+        }
+        let fallback = o.field("championSkinName").and_then(|v| v.as_str()).unwrap_or("Fiddlesticks").to_string();
+        out.push(SkinInfo { num: n, name: names.get(&n).cloned().unwrap_or(fallback), parent: mesh_parent(&o, n) });
+    }
+    println!("skins: {}", out.iter().map(|s| format!("{} {}", s.num, s.name)).collect::<Vec<_>>().join(", "));
+    out
+}
+
+/// `--skin N`: builds one skin's model, animations and sounds into cache/skins/skinN.bin.
+fn prepare_skin(args: &[String], n: u32) -> Result<String> {
+    let root = league_root(args)?;
+    let champions = find_champions_dir(&root)?;
+    let main_wad = Wad::open(&find_file(&champions, |f| f == "fiddlesticks.wad.client").context("FiddleSticks.wad.client not found")?)?;
+    let locale_path = find_file(&champions, |f| f.starts_with("fiddlesticks.") && f.ends_with(".wad.client") && f != "fiddlesticks.wad.client");
+    let locale_wad = match &locale_path {
+        Some(p) => Some(Wad::open(p)?),
+        None => None,
+    };
+    let locale = locale_path
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map(|f| f.to_string_lossy().split('.').nth(1).unwrap_or("").to_string())
+        .unwrap_or_default();
+    let out = arg_value(args, "--out").map(PathBuf::from).unwrap_or_else(cache_dir);
+    std::fs::create_dir_all(out.join("skins"))?;
+    std::fs::create_dir_all(out.join("audio"))?;
+
+    let skin = bin::parse(&main_wad.read(&skin_bin_path(n))?)?;
+    let mut found = vec![];
+    let model = build_model(&main_wad, &skin, &skin_obj_path(n), &mut found)?;
+    let so = obj(&skin, &skin_obj_path(n)).context("skin object missing")?.as_value();
+
+    // its animation graph: the object the skin links to, in its own animations bin or the one it shares
+    let graph = so.field("SkinAnimationProperties").and_then(|a| a.field("AnimationGraphData"));
+    let graph_hash = match graph {
+        Some(Value::ObjLink(h)) => *h,
+        _ => fnv1a(&format!("Characters/FiddleSticks/Animations/Skin{n}")),
+    };
+    let parent = mesh_parent(&so, n);
+    let mut clips = None;
+    for m in [n, parent].into_iter().chain(0..100) {
+        let Ok(b) = main_wad.read(&format!("data/characters/fiddlesticks/animations/skin{m}.bin")).and_then(|d| bin::parse(&d)) else { continue };
+        if b.objects.iter().any(|o| o.path == graph_hash) {
+            clips = Some(build_clips(&main_wad, &b, graph_hash, &model)?.0);
+            break;
+        }
+    }
+    let clips = clips.context("animation graph not found")?;
+    let sounds = build_skin_audio(&main_wad, locale_wad.as_ref(), &locale, &so, &out.join("audio"))?;
+
+    let c = SkinCache { version: cache::CACHE_VERSION, num: n, model, clips, sounds };
+    let tmp = out.join(format!("skins/skin{n}.tmp"));
+    std::fs::write(&tmp, cache::save_skin(&c)?)?;
+    std::fs::rename(&tmp, out.join(format!("skins/skin{n}.bin")))?;
+    Ok(format!("skin {n} ready: {} vertices, {} textures, {} clips, {} sounds", c.model.vertices.len(), c.model.textures.len(), c.clips.len(), c.sounds.len()))
+}
+
+/// A skin's own sound banks (its SFX and, if it has one, its voice): each sheet sound is looked up under the
+/// skin's event names (Play_vo_FiddlesticksSkin06_... for Play_vo_Fiddlesticks_...).
+fn build_skin_audio(main: &Wad, locale_wad: Option<&Wad>, locale: &str, skin: &Value, audio_dir: &Path) -> Result<BTreeMap<String, Vec<String>>> {
+    struct Unit {
+        tag: String,
+        events: audio::Bank,
+        audio: Vec<audio::Bank>,
+        wpk: HashMap<u32, Vec<u8>>,
+    }
+    let mut units: Vec<(bool, Unit)> = vec![];
+    let banks = skin.field("SkinAudioProperties").and_then(|a| a.field("bankUnits")).map(|v| v.list()).unwrap_or(&[]);
+    for b in banks {
+        let name = b.field("name").and_then(|v| v.as_str()).unwrap_or("");
+        let vo = name.ends_with("_VO");
+        // Fiddlesticks_Skin06_VO -> FiddlesticksSkin06, Fiddlesticks_Base_SFX -> Fiddlesticks
+        let stem = name.trim_end_matches("_VO").trim_end_matches("_SFX");
+        let tag = stem.trim_end_matches("_Base").replace('_', "");
+        let mut u = Unit { tag, events: audio::Bank::default(), audio: vec![], wpk: HashMap::new() };
+        for p in b.field("bankPath").map(|v| v.list()).unwrap_or(&[]).iter().filter_map(|v| v.as_str()) {
+            let (wad, path) = if vo {
+                let Some(w) = locale_wad else { continue };
+                (w, p.replace("/en_US/", &format!("/{}/", locale_case(locale))))
+            } else {
+                (main, p.to_string())
+            };
+            let Ok(data) = wad.read(&path) else { continue };
+            if path.ends_with(".wpk") {
+                if let Ok(w) = audio::read_wpk(&data) {
+                    u.wpk.extend(w);
+                }
+            } else if let Ok(bank) = audio::read_bnk(&data) {
+                if path.to_ascii_lowercase().ends_with("_events.bnk") {
+                    u.events = bank;
+                } else {
+                    u.audio.push(bank);
+                }
+            }
+        }
+        units.push((vo, u));
+    }
+
+    let mut pending: Vec<(u32, PathBuf)> = vec![];
+    let mut cues: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for s in sheet::SOUNDS {
+        let vo = s.bank != "sfx";
+        let Some((_, u)) = units.iter().find(|(v, _)| *v == vo) else { continue };
+        let event = s.event.replacen("_Fiddlesticks_", &format!("_{}_", u.tag), 1);
+        let id = audio::wwise_id(&event);
+        for bank in &u.audio {
+            let wems = audio::resolve_event(id, &[&u.events, bank]);
+            if wems.is_empty() {
+                continue;
+            }
+            let mut have = vec![];
+            for w in wems {
+                let wav = audio_dir.join(format!("{w}.wav"));
+                if !wav.exists() && !pending.iter().any(|(p, _)| *p == w) {
+                    let Some(bytes) = u.wpk.get(&w).or_else(|| bank.wems.get(&w)) else { continue };
+                    let p = audio_dir.join(format!("{w}.wem"));
+                    std::fs::write(&p, bytes)?;
+                    pending.push((w, p));
+                }
+                have.push(w);
+            }
+            if !have.is_empty() {
+                cues.insert(s.id.to_string(), have);
+            }
+            break;
+        }
+    }
+    decode_wems(&pending)?;
+    for (_, p) in &pending {
+        let _ = std::fs::remove_file(p);
+    }
+    Ok(cues
+        .into_iter()
+        .map(|(k, w)| (k, w.iter().filter(|w| audio_dir.join(format!("{w}.wav")).exists()).map(|w| format!("{w}.wav")).collect::<Vec<_>>()))
+        .filter(|(_, f)| !f.is_empty())
+        .collect())
+}
+
+/// es_es -> es_ES (League's sound folders)
+fn locale_case(l: &str) -> String {
+    match l.split_once('_') {
+        Some((a, b)) => format!("{}_{}", a.to_ascii_lowercase(), b.to_ascii_uppercase()),
+        None => l.to_string(),
+    }
+}
+
+/// The diffuse texture of a skin material (StaticMaterialDef) in the skin's bin.
+fn material_texture(wad: &Wad, skin: &Bin, link: &Value) -> Option<Tex> {
+    let Value::ObjLink(h) = link else { return None };
+    let m = skin.objects.iter().find(|o| o.path == *h)?;
+    let samplers = m.field("samplerValues")?.list();
+    for want in ["Diffuse_Texture", "Diffuse_Color", "DiffuseTexture", "Diffuse", "Main_Texture", "MainTex"] {
+        for s in samplers {
+            if s.field("TextureName").and_then(|v| v.as_str()).map(|n| n.eq_ignore_ascii_case(want)).unwrap_or(false) {
+                let t = s.field("texturePath")?;
+                return read_link(wad, t).ok().and_then(|b| texture::read_any(&b).ok()).map(to_tex);
+            }
+        }
+    }
+    None
 }

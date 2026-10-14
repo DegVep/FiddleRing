@@ -413,9 +413,10 @@ pub fn read_anm(b: &[u8]) -> Result<Anm> {
                 if tracks.len() <= i {
                     tracks.push(AnmTrack { joint_hash: h, t: vec![], r: vec![], s: vec![] });
                 }
-                tracks[i].t.push(vecs[ti]);
-                tracks[i].s.push(vecs[si]);
-                tracks[i].r.push(quats[ri]);
+                let bad = || anyhow::anyhow!("anm v4: frame index out of range");
+                tracks[i].t.push(*vecs.get(ti).ok_or_else(bad)?);
+                tracks[i].s.push(*vecs.get(si).ok_or_else(bad)?);
+                tracks[i].r.push(*quats.get(ri).ok_or_else(bad)?);
             }
         }
         Ok(Anm { fps: 1.0 / frame_duration, frames: frames as u32, tracks })

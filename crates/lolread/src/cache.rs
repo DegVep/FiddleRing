@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 5;
+pub const CACHE_VERSION: u32 = 6;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {
@@ -104,6 +104,28 @@ pub struct Cache {
     pub sounds: BTreeMap<String, Vec<String>>,
     /// Fiddlesticks' crow (particle model) and its flight loop, when the install has them
     pub raven: Option<(Model, Clip)>,
+    /// every skin and chroma in the install (icons in `icons` as skin_icon_<num>)
+    pub skins: Vec<SkinInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SkinInfo {
+    pub num: u32,
+    /// the player's client language
+    pub name: String,
+    /// the skin a chroma recolours (its own number for a skin)
+    pub parent: u32,
+}
+
+/// One skin built on demand (`fiddlering-prep --skin N`): what replaces the base skin's model, clips and sounds.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SkinCache {
+    pub version: u32,
+    pub num: u32,
+    pub model: Model,
+    pub clips: Vec<Clip>,
+    /// sound id (sheet) -> wav files in cache/audio; ids it lacks keep the base skin's
+    pub sounds: BTreeMap<String, Vec<String>>,
 }
 
 impl Spell {
@@ -117,6 +139,18 @@ impl Spell {
 
 pub fn save(c: &Cache) -> anyhow::Result<Vec<u8>> {
     Ok(bincode::serialize(c)?)
+}
+
+pub fn save_skin(c: &SkinCache) -> anyhow::Result<Vec<u8>> {
+    Ok(bincode::serialize(c)?)
+}
+
+pub fn load_skin(b: &[u8]) -> anyhow::Result<SkinCache> {
+    let c: SkinCache = bincode::deserialize(b)?;
+    if c.version != CACHE_VERSION {
+        anyhow::bail!("skin cache version {} (need {CACHE_VERSION})", c.version);
+    }
+    Ok(c)
 }
 
 pub fn load(b: &[u8]) -> anyhow::Result<Cache> {

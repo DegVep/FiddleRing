@@ -123,6 +123,10 @@ pub fn run(args: &[String]) -> Result<()> {
             match c { Some(c) => { let d = w.read_chunk(&c)?; println!("{h}: {:?} len {}", String::from_utf8_lossy(&d[..12.min(d.len())]), d.len()); } None => println!("{h}: missing") }
         }
     }
+    if args.get(1).map(|s| s.as_str()) == Some("--extract") {
+        let w = Wad::open(Path::new(&args[2]))?;
+        std::fs::write(&args[4], w.read(&args[3])?)?;
+    }
     if args.get(1).map(|s| s.as_str()) == Some("--has") {
         let w = Wad::open(Path::new(&args[2]))?;
         for p in &args[3..] { match w.get(p) { Some(c) => { let d = w.read_chunk(&c)?; println!("YES {p} len {} magic {:?}", d.len(), String::from_utf8_lossy(&d[..8.min(d.len())])); } None => println!("no  {p}") } }

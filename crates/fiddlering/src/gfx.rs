@@ -144,6 +144,11 @@ unsafe extern "system" fn resize_hook(this: *mut c_void, n: u32, w: u32, h: u32,
     f(this, n, w, h, fmt, fl)
 }
 
+/// Drops the GPU renderer; the next frame rebuilds it from the current cache (a new skin).
+pub fn reset() {
+    release_renderer();
+}
+
 fn release_renderer() {
     let r = std::panic::catch_unwind(|| {
         let mut st = STATE.lock().unwrap();

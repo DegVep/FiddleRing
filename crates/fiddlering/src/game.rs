@@ -15,7 +15,7 @@ use lolread::sheet::{self, tuning};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_MENU};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_DOWN, VK_F2, VK_LEFT, VK_MENU, VK_RETURN, VK_RIGHT, VK_UP};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 type V3 = [f32; 3];
@@ -130,6 +130,15 @@ struct Pending {
 
 pub struct Game {
     c: Arc<Cache>,
+    /// the base skin's cache (skins replace model, clips and some sounds of a copy of it)
+    base: Arc<Cache>,
+    /// skin worn (League skin number)
+    skin: u32,
+    /// skin picker open: (row in the skin list, chroma: 0 = the skin itself)
+    skin_menu: Option<(usize, usize)>,
+    skin_job: Option<(u32, std::sync::mpsc::Receiver<bool>)>,
+    skin_note: Option<(String, f32)>,
+    menu_keys: [bool; 6],
     audio: Option<Audio>,
     anim: Anim,
     level: u32,
@@ -280,7 +289,13 @@ impl Game {
             log!("TEST mode: level 18, abilities cast by themselves at the nearest enemy");
         }
         log!("champion level {level}, xp {xp:.0}");
-        let g = Game {
+        let mut g = Game {
+            base: c.clone(),
+            skin: 0,
+            skin_menu: None,
+            skin_job: None,
+            skin_note: None,
+            menu_keys: [false; 6],
             c,
             audio,
             anim: Anim::new(),
@@ -328,6 +343,9 @@ impl Game {
             last_close: 0.0,
             dbg_last: 0,
         };
+        if let Some(n) = std::fs::read_to_string(skin_choice_path()).ok().and_then(|t| t.trim().parse::<u32>().ok()) {
+            g.choose_skin(n);
+        }
         g
     }
 
@@ -470,6 +488,7 @@ impl Game {
         }
 
         self.watch_menus();
+        self.update_skins();
         // loading screens (er_menus sheet): nothing of Fiddlesticks on them
         if sheet::HIDE_ON_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
             self.publish(None);
@@ -1396,9 +1415,10 @@ impl Game {
                 "image" => {
                     let slot = item.binding.strip_prefix("ability:").and_then(|a| SLOTS.iter().position(|s| *s == a));
                     let Some(s) = slot else {
-                        // portrait
+                        // portrait: the worn skin's icon
                         frame(out, x, y, w, h, gold);
-                        out.push(rect(x, y, w, h, [1.0, 1.0, 1.0, 1.0], item.source));
+                        let tex = if self.skin != 0 && self.c.icons.contains_key(skin_icon(self.skin)) { skin_icon(self.skin) } else { item.source };
+                        out.push(rect(x, y, w, h, [1.0, 1.0, 1.0, 1.0], tex));
                         continue;
                     };
                     let ab = ability(s);
@@ -1477,5 +1497,261 @@ impl Game {
                 _ => {}
             }
         }
+        if let Some((row, ch)) = self.skin_menu {
+            self.draw_skin_menu(out, row, ch, &rect, &frame, &gradient, &label);
+        }
+    }
+}
+
+/// Texture key of a skin's round icon (static: sprites hold &'static str keys).
+fn skin_icon(n: u32) -> &'static str {
+    static KEYS: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
+    KEYS.get_or_init(|| (0..100).map(|i| &*Box::leak(format!("skin_icon_{i}").into_boxed_str())).collect())
+        .get(n as usize)
+        .copied()
+        .unwrap_or("white")
+}
+
+fn skin_choice_path() -> std::path::PathBuf {
+    crate::log::data_dir().join("skin.txt")
+}
+
+fn skin_cache_path(n: u32) -> std::path::PathBuf {
+    crate::log::data_dir().join("cache").join("skins").join(format!("skin{n}.bin"))
+}
+
+// Skins: F2 opens a picker; a skin not built yet is built by fiddlering-prep --skin N in the background.
+impl Game {
+    /// Skins (not chromas), in League's order.
+    fn skin_rows(&self) -> Vec<u32> {
+        self.base.skins.iter().filter(|s| s.parent == s.num).map(|s| s.num).collect()
+    }
+
+    fn chromas(&self, parent: u32) -> Vec<u32> {
+        self.base.skins.iter().filter(|s| s.parent == parent && s.num != parent).map(|s| s.num).collect()
+    }
+
+    fn skin_name(&self, n: u32) -> &str {
+        self.base.skins.iter().find(|s| s.num == n).map(|s| s.name.as_str()).unwrap_or("Fiddlesticks")
+    }
+
+    fn menu_pick(&self, row: usize, ch: usize) -> u32 {
+        let rows = self.skin_rows();
+        let p = rows.get(row).copied().unwrap_or(0);
+        if ch == 0 { p } else { self.chromas(p).get(ch - 1).copied().unwrap_or(p) }
+    }
+
+    fn update_skins(&mut self) {
+        // a background build finished
+        if let Some((n, rx)) = &self.skin_job {
+            let n = *n;
+            match rx.try_recv() {
+                Ok(ok) => {
+                    self.skin_job = None;
+                    match std::fs::read(skin_cache_path(n)).ok().and_then(|b| lolread::cache::load_skin(&b).ok()).filter(|_| ok) {
+                        Some(sc) => self.apply_skin(Some(sc)),
+                        None => self.skin_note = Some(("No se pudo preparar esa skin (mira fiddlering.log)".into(), self.clock + 4.0)),
+                    }
+                }
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => self.skin_job = None,
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            }
+        }
+
+        let focused = game_focused();
+        let keys = [VK_F2, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, VK_RETURN].map(|k| focused && key_down(k.0 as i32));
+        let pressed: Vec<bool> = (0..6).map(|i| keys[i] && !self.menu_keys[i]).collect();
+        self.menu_keys = keys;
+        let rows = self.skin_rows();
+        if rows.is_empty() {
+            return;
+        }
+        if pressed[0] {
+            self.skin_menu = match self.skin_menu {
+                Some(_) => None,
+                None => {
+                    // open on what is worn
+                    let parent = self.base.skins.iter().find(|s| s.num == self.skin).map(|s| s.parent).unwrap_or(0);
+                    let row = rows.iter().position(|&r| r == parent).unwrap_or(0);
+                    let ch = self.chromas(parent).iter().position(|&c| c == self.skin).map(|i| i + 1).unwrap_or(0);
+                    Some((row, ch))
+                }
+            };
+        }
+        let Some((mut row, mut ch)) = self.skin_menu else { return };
+        let n = rows.len();
+        if pressed[1] {
+            row = (row + n - 1) % n;
+            ch = 0;
+        }
+        if pressed[2] {
+            row = (row + 1) % n;
+            ch = 0;
+        }
+        let k = self.chromas(rows[row]).len() + 1;
+        if pressed[3] {
+            ch = (ch + k - 1) % k;
+        }
+        if pressed[4] {
+            ch = (ch + 1) % k;
+        }
+        self.skin_menu = Some((row, ch));
+        if pressed[5] {
+            let pick = self.menu_pick(row, ch);
+            self.choose_skin(pick);
+        }
+    }
+
+    /// Wears skin `n`: at once if it is built, else after building it in the background.
+    fn choose_skin(&mut self, n: u32) {
+        if n == self.skin && self.skin_job.is_none() {
+            return;
+        }
+        if n == 0 {
+            self.apply_skin(None);
+            return;
+        }
+        if let Some(sc) = std::fs::read(skin_cache_path(n)).ok().and_then(|b| lolread::cache::load_skin(&b).ok()) {
+            self.apply_skin(Some(sc));
+            return;
+        }
+        if self.skin_job.is_some() {
+            return;
+        }
+        let prep = crate::dll_dir().join("fiddlering-prep.exe");
+        let (tx, rx) = std::sync::mpsc::channel();
+        log!("SKIN {n}: building with {}", prep.display());
+        std::thread::spawn(move || {
+            let mut cmd = std::process::Command::new(&prep);
+            cmd.arg("--skin").arg(n.to_string());
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+            }
+            let ok = match cmd.output() {
+                Ok(o) => {
+                    log!("SKIN {n}: {}{}", String::from_utf8_lossy(&o.stdout).trim(), String::from_utf8_lossy(&o.stderr).trim());
+                    o.status.success()
+                }
+                Err(e) => {
+                    log!("SKIN {n}: prep failed to start: {e}");
+                    false
+                }
+            };
+            let _ = tx.send(ok);
+        });
+        self.skin_job = Some((n, rx));
+    }
+
+    /// Swaps Fiddlesticks' model, animations and sounds (None = the base skin) and redraws him.
+    fn apply_skin(&mut self, sc: Option<lolread::cache::SkinCache>) {
+        let mut c = (*self.base).clone();
+        let n = sc.as_ref().map(|s| s.num).unwrap_or(0);
+        if let Some(s) = sc {
+            c.model = s.model;
+            c.clips = s.clips;
+            c.sounds.extend(s.sounds);
+        }
+        self.c = Arc::new(c);
+        crate::gfx::set_cache(self.c.clone());
+        crate::gfx::reset();
+        if let Some(a) = self.audio.as_mut() {
+            a.set_sounds(&self.c.sounds);
+        }
+        self.skin = n;
+        let _ = std::fs::write(skin_choice_path(), n.to_string());
+        log!("SKIN {n} worn: {} ({} vertices)", self.skin_name(n), self.c.model.vertices.len());
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_skin_menu(
+        &self,
+        out: &mut Vec<Sprite>,
+        row: usize,
+        ch: usize,
+        rect: &dyn Fn(f32, f32, f32, f32, [f32; 4], &'static str) -> Sprite,
+        frame: &dyn Fn(&mut Vec<Sprite>, f32, f32, f32, f32, [f32; 4]),
+        gradient: &dyn Fn(&mut Vec<Sprite>, f32, f32, f32, f32, [f32; 4], [f32; 4]),
+        label: &dyn Fn(&mut Vec<Sprite>, &str, f32, f32, f32, [f32; 4]),
+    ) {
+        let gold = [0.78, 0.67, 0.43, 1.0];
+        let gold_dim = [0.42, 0.36, 0.24, 1.0];
+        let white = [0.96, 0.94, 0.90, 1.0];
+        let grey = [0.70, 0.67, 0.60, 1.0];
+        let left = |out: &mut Vec<Sprite>, s: &str, x: f32, y: f32, size: f32, color: [f32; 4]| label(out, s, x + font::width(s, size) * 0.5, y, size, color);
+        let icon = |out: &mut Vec<Sprite>, n: u32, x: f32, y: f32, size: f32, dim: f32| {
+            let key = if self.c.icons.contains_key(skin_icon(n)) { skin_icon(n) } else { "icon_portrait" };
+            out.push(rect(x, y, size, size, [dim, dim, dim, 1.0], key));
+        };
+
+        out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.6], "white"));
+        let (px, py, pw, ph) = (460.0, 170.0, 1000.0, 700.0);
+        frame(out, px, py, pw, ph, gold);
+        gradient(out, px, py, pw, ph, [0.07, 0.12, 0.14, 0.97], [0.01, 0.03, 0.04, 0.98]);
+        label(out, "SKINS DE FIDDLESTICKS", 960.0, py + 18.0, 30.0, gold);
+        out.push(rect(px + 40.0, py + 60.0, pw - 80.0, 1.0, [gold[0], gold[1], gold[2], 0.5], "white"));
+
+        // the list of skins
+        let rows = self.skin_rows();
+        let worn_parent = self.base.skins.iter().find(|s| s.num == self.skin).map(|s| s.parent).unwrap_or(0);
+        let (lx, ly, rh) = (px + 24.0, py + 76.0, 44.0);
+        for (i, &n) in rows.iter().enumerate() {
+            let y = ly + rh * i as f32;
+            if i == row {
+                out.push(rect(lx - 4.0, y - 2.0, 400.0, rh - 4.0, [0.78, 0.67, 0.43, 0.22], "white"));
+                out.push(rect(lx - 4.0, y - 2.0, 3.0, rh - 4.0, gold, "white"));
+            }
+            icon(out, n, lx + 4.0, y + 1.0, 36.0, 1.0);
+            let name = self.skin_name(n);
+            left(out, name, lx + 50.0, y + 10.0, 17.0, if i == row { white } else { grey });
+            if n == worn_parent {
+                out.push(rect(lx + 384.0, y + 15.0, 8.0, 8.0, gold, "white"));
+            }
+        }
+        out.push(rect(px + 440.0, py + 76.0, 1.0, ph - 140.0, [gold[0], gold[1], gold[2], 0.35], "white"));
+
+        // the chosen one, big
+        let pick = self.menu_pick(row, ch);
+        let cx = px + 720.0;
+        frame(out, cx - 130.0, py + 90.0, 260.0, 260.0, gold);
+        icon(out, pick, cx - 130.0, py + 90.0, 260.0, 1.0);
+        label(out, self.skin_name(pick), cx, py + 372.0, 24.0, white);
+        let status = if self.skin_job.as_ref().map(|j| j.0) == Some(pick) {
+            ("Preparando la skin desde tu League...".to_string(), [0.95, 0.82, 0.35, 1.0])
+        } else if let Some((msg, until)) = self.skin_note.as_ref().filter(|n| n.1 > self.clock) {
+            let _ = until;
+            (msg.clone(), [0.95, 0.40, 0.35, 1.0])
+        } else if pick == self.skin {
+            ("Equipada".to_string(), [0.55, 0.85, 0.45, 1.0])
+        } else {
+            ("Enter para equipar".to_string(), grey)
+        };
+        label(out, &status.0, cx, py + 408.0, 16.0, status.1);
+
+        // its chromas
+        let parent = rows.get(row).copied().unwrap_or(0);
+        let chromas = self.chromas(parent);
+        if !chromas.is_empty() {
+            label(out, "Cromas", cx, py + 452.0, 17.0, gold);
+            let all: Vec<u32> = std::iter::once(parent).chain(chromas.iter().copied()).collect();
+            let step = (500.0 / all.len() as f32).min(62.0);
+            let size = step - 10.0;
+            let x0 = cx - step * all.len() as f32 * 0.5 + 5.0;
+            for (i, &n) in all.iter().enumerate() {
+                let x = x0 + step * i as f32;
+                let y = py + 482.0;
+                if i == ch {
+                    frame(out, x, y, size, size, gold);
+                } else {
+                    out.push(rect(x - 2.0, y - 2.0, size + 4.0, size + 4.0, gold_dim, "white"));
+                }
+                icon(out, n, x, y, size, if i == ch { 1.0 } else { 0.7 });
+                if n == self.skin {
+                    out.push(rect(x + size * 0.5 - 4.0, y + size + 6.0, 8.0, 8.0, gold, "white"));
+                }
+            }
+        }
+
+        label(out, "Arriba/Abajo: skin  ·  Izquierda/Derecha: croma  ·  Enter: equipar  ·  F2: cerrar", 960.0, py + ph - 40.0, 16.0, grey);
     }
 }

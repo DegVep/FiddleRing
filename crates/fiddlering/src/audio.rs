@@ -136,6 +136,11 @@ impl Audio {
         true
     }
 
+    /// Switches to another skin's sounds (ids it lacks keep playing the base skin's).
+    pub fn set_sounds(&mut self, sounds: &std::collections::BTreeMap<String, Vec<String>>) {
+        self.files = sounds.clone();
+    }
+
     /// Cuts every playing sound whose sheet id starts with `prefix` (a channel that ended early).
     pub fn stop(&mut self, prefix: &str) {
         self.playing.retain(|(v, _, id)| unsafe {
