@@ -1,0 +1,181 @@
+{
+  "sheet": "vfx_events",
+  "doc": "Moments of the kit and the League particle system each plays, by the skin's resource key (key = a name hashed like League does, or #hex for keys League ships unnamed); every skin maps the same keys to its own systems. attach: caster (follows him), bone:<joint> (his bone), target (the enemy hit), point (the cast point, turned to the cast), missile (follows the missile), beam (from his chest to the target), fly_to_caster (moves from the target to him). scale multiplies League units after Fiddlesticks' model scale. Events with no system in a skin fall back to the effects sheet.",
+  "columns": [
+    "id",
+    "key",
+    "attach",
+    "scale",
+    "note"
+  ],
+  "rows": [
+    {
+      "id": "aa_cast",
+      "key": "FiddleSticks_BA_Cas",
+      "attach": "bone:L_Hand",
+      "scale": 1.0,
+      "note": "basic attack leaves his hand"
+    },
+    {
+      "id": "aa_missile",
+      "key": "Fiddlesticks_BA_mis",
+      "attach": "missile",
+      "scale": 1.0,
+      "note": "the basic attack bolt in flight"
+    },
+    {
+      "id": "aa_hit",
+      "key": "FiddleSticks_BasicAttack_tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "basic attack lands"
+    },
+    {
+      "id": "melee1_hit",
+      "key": "FiddleSticks_BA_1_Melee_tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "first melee swipe lands"
+    },
+    {
+      "id": "melee2_hit",
+      "key": "FiddleSticks_BA_2_Melee_tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "second melee swipe lands"
+    },
+    {
+      "id": "q_cast",
+      "key": "FiddleSticks_Q_Cas",
+      "attach": "caster",
+      "scale": 1.0,
+      "note": "Terrify cast"
+    },
+    {
+      "id": "q_missile",
+      "key": "#c529563a",
+      "attach": "missile",
+      "scale": 1.0,
+      "note": "Terrify crow in flight (FiddleSticks_Base_Q_Mis_Terrify)"
+    },
+    {
+      "id": "q_hit",
+      "key": "FiddleSticks_Q_1_tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "Terrify lands"
+    },
+    {
+      "id": "q_hit_feared",
+      "key": "FiddleSticks_Q_2_Tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "Terrify lands on a target already feared (double damage)"
+    },
+    {
+      "id": "feared",
+      "key": "Fiddlesticks_Terrify_Buff",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "on a feared (stunned) enemy while it lasts"
+    },
+    {
+      "id": "w_cast",
+      "key": "FiddleSticks_W_cas",
+      "attach": "caster",
+      "scale": 1.0,
+      "note": "Bountiful Harvest cast"
+    },
+    {
+      "id": "w_body",
+      "key": "FiddleSticks_W_Body_Tendrils",
+      "attach": "caster",
+      "scale": 1.0,
+      "note": "on him while he drains"
+    },
+    {
+      "id": "w_drain",
+      "key": "#fe9f5e1d",
+      "attach": "beam",
+      "scale": 1.0,
+      "note": "tether from him to each drained enemy (FiddleSticks_Base_W_Drain)"
+    },
+    {
+      "id": "w_target",
+      "key": "FiddleSticks_W_Tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "on each drained enemy"
+    },
+    {
+      "id": "w_heal_missile",
+      "key": "FiddleSticks_W_Mis",
+      "attach": "fly_to_caster",
+      "scale": 1.0,
+      "note": "stolen life flying from a drained enemy to him at each tick"
+    },
+    {
+      "id": "w_final",
+      "key": "#c03dac2b",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "the last, heavy tick (FiddleSticks_Base_W_Tar_pop)"
+    },
+    {
+      "id": "w_heal",
+      "key": "FiddleSticks_W_Healing_Sparks",
+      "attach": "caster",
+      "scale": 1.0,
+      "note": "the drain heals him"
+    },
+    {
+      "id": "e_cast",
+      "key": "FiddleSticks_E_Cut",
+      "attach": "point",
+      "scale": 1.0,
+      "note": "Reap slash at the cast point, turned to the cast direction"
+    },
+    {
+      "id": "e_hit",
+      "key": "Fiddlesticks_E_Tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "Reap hits"
+    },
+    {
+      "id": "r_chest",
+      "key": "Fiddlesticks_R_Channel_Chest",
+      "attach": "bone:Chest",
+      "scale": 1.0,
+      "note": "Crowstorm channel, chest"
+    },
+    {
+      "id": "r_hands",
+      "key": "Fiddlesticks_R_Channel_Hands",
+      "attach": "bone:R_Hand",
+      "scale": 1.0,
+      "note": "Crowstorm channel, hands"
+    },
+    {
+      "id": "r_ground",
+      "key": "FiddleSticks_R_Channel_Ground_Glow",
+      "attach": "caster",
+      "scale": 1.0,
+      "note": "Crowstorm channel, ground"
+    },
+    {
+      "id": "r_storm",
+      "key": "Fiddlesticks_R_AOE",
+      "attach": "caster",
+      "scale": 1.6,
+      "note": "the storm around him (League radius drawn bigger to match the gameplay radius)"
+    },
+    {
+      "id": "r_hit",
+      "key": "FiddleSticks_R_Tar",
+      "attach": "target",
+      "scale": 1.0,
+      "note": "Crowstorm tick on an enemy"
+    }
+  ]
+}

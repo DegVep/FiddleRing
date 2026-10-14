@@ -8,4 +8,5 @@ pub mod mesh;
 pub mod pose;
 pub mod texture;
 pub mod theme;
+pub mod vfx;
 pub mod wad;

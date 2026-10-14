@@ -9,6 +9,7 @@ mod gfx;
 #[macro_use]
 mod log;
 mod scene;
+mod vfx;
 
 use eldenring::cs::{CSTaskGroupIndex, CSTaskImp};
 use eldenring::fd4::FD4TaskData;

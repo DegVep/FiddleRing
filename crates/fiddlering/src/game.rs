@@ -7,6 +7,7 @@ use crate::audio::Audio;
 use crate::font;
 use crate::log;
 use crate::scene::{ModelDraw, SCENE, Scene, Sprite, quad_uv};
+use crate::vfx::{Follow, Frame, Vfx};
 use eldenring::cs::{CSCamera, ChrIns, WorldChrMan};
 use fromsoftware_shared::FromStatic;
 use lolread::cache::{Cache, Spell};
@@ -139,6 +140,15 @@ pub struct Game {
     skin_job: Option<(u32, std::sync::mpsc::Receiver<bool>)>,
     skin_note: Option<(String, f32)>,
     menu_keys: [bool; 6],
+    /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
+    vfx: Vfx,
+    vfx_live: HashMap<(&'static str, usize), u64>,
+    /// a chroma's colours over its skin's League effects
+    vfx_theme: Option<lolread::theme::Theme>,
+    /// characters that exist this frame (pointers safe to read)
+    alive_ptrs: HashSet<usize>,
+    snap_pos: V3,
+    snap_fwd: V3,
     /// the worn skin's colours for the effects
     theme: Option<lolread::theme::Theme>,
     /// CC immunity: poise written last frame, the poise he would really have left, last time it was hit
@@ -303,6 +313,12 @@ impl Game {
             skin_job: None,
             skin_note: None,
             menu_keys: [false; 6],
+            vfx: Vfx::new(),
+            vfx_live: HashMap::new(),
+            vfx_theme: None,
+            alive_ptrs: HashSet::new(),
+            snap_pos: [0.0; 3],
+            snap_fwd: [0.0, 0.0, 1.0],
             theme: None,
             poise_written: -1.0,
             real_poise: 0.0,
@@ -589,6 +605,8 @@ impl Game {
             let range = val(&self.c, s, "CastRange", self.rank(s).max(1)) * tuning::RANGE_SCALE;
             self.in_range[s] = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= range);
         }
+        self.alive_ptrs = alive.clone();
+        self.snap_pos = me.pos;
         let locked_ptr = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize).filter(|p| alive.contains(p));
 
         // kills: characters we damaged whose HP reached 0
@@ -727,6 +745,8 @@ impl Game {
         }
         self.update_ult(dt, &me, forward, player_ptr, &hostiles, player_level_ap);
         self.update_cc();
+        self.snap_fwd = self.face.map(|f| f.0).unwrap_or(forward);
+        self.sync_vfx();
 
         // locomotion when no one-shot is playing
         let id = self.anim.id();
@@ -895,6 +915,17 @@ impl Game {
             _ => ab.anim,
         };
         self.anim.play(clip, true);
+        let cast_vfx = match (slot, melee) {
+            (0, false) => Some("aa_cast"),
+            (1, _) => Some("q_cast"),
+            (2, _) => Some("w_cast"),
+            _ => None,
+        };
+        if let Some(id) = cast_vfx {
+            let follow = if id == "aa_cast" { Follow::Bone("L_Hand") } else { Follow::Caster };
+            let at = self.caster_frame();
+            self.vfx_once(id, follow, at);
+        }
         self.sound(ab.sfx_cast);
         self.sound(ab.vo);
         let dir = norm([point[0] - me.pos[0], 0.0, point[2] - me.pos[2]]);
@@ -943,7 +974,11 @@ impl Game {
                     self.damage(t, ad, "AA");
                     self.sound("sfx_aa_hit");
                     let dir = norm(sub(me.pos, t.pos));
-                    self.fx.burst("aa_melee", "hit", add(t.pos, [0.0, t.height * 0.6, 0.0]), dir, 0.0);
+                    let which = if self.anim.id() == "melee2" { "melee2_hit" } else { "melee1_hit" };
+                    let at = self.chr_frame(t.ptr).unwrap_or(self.caster_frame());
+                    if !self.vfx_once(which, Follow::Chr(t.ptr), at) {
+                        self.fx.burst("aa_melee", "hit", add(t.pos, [0.0, t.height * 0.6, 0.0]), dir, 0.0);
+                    }
                     return;
                 }
                 let group = if p.slot == 0 { "aa_missile" } else { "q_fear" };
@@ -966,12 +1001,17 @@ impl Game {
                 let slow = -val(&self.c, 3, "SlowAmount", p.rank);
                 let silence = val(&self.c, 3, "SilenceDuration", p.rank);
                 let dir = norm([p.point[0] - me.pos[0], 0.0, p.point[2] - me.pos[2]]);
-                self.fx.burst("e_reap", "area", p.point, dir, radius);
+                if !self.vfx_once("e_cast", Follow::Fixed, Frame { pos: p.point, fwd: dir, target: None }) {
+                    self.fx.burst("e_reap", "area", p.point, dir, radius);
+                }
                 log!("E at {:?} (player {:?}) radius {radius:.1}", p.point, me.pos);
                 let mut hit = false;
                 for h in hostiles.iter().filter(|h| flat(sub(h.pos, p.point)) <= radius) {
                     self.damage(*h, dmg, "E");
-                    self.fx.burst("e_reap", "hit", add(h.pos, [0.0, h.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                    let at = self.chr_frame(h.ptr).unwrap_or(self.caster_frame());
+                    if !self.vfx_once("e_hit", Follow::Chr(h.ptr), at) {
+                        self.fx.burst("e_reap", "hit", add(h.pos, [0.0, h.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                    }
                     let inner = flat(sub(h.pos, p.point)) <= radius * tuning::E_SILENCE_INNER;
                     self.apply_cc(h.ptr, tuning::E_SLOW_DURATION, false, false, slow);
                     if inner {
@@ -1005,7 +1045,8 @@ impl Game {
                 m.pos = add(m.pos, mul(m.dir, step));
             }
         }
-        let trails: Vec<(&'static str, usize, V3, V3)> = self.missiles.iter().map(|m| (m.group, m.id, m.pos, m.dir)).collect();
+        let trails: Vec<(&'static str, usize, V3, V3)> =
+            self.missiles.iter().filter(|m| !self.vfx_live.contains_key(&(if m.slot == 0 { "aa_missile" } else { "q_missile" }, m.id))).map(|m| (m.group, m.id, m.pos, m.dir)).collect();
         for (group, id, pos, dir) in trails {
             self.fx.stream(group, "missile_trail", id, pos, mul(dir, -1.0), 0.0, dt);
         }
@@ -1017,7 +1058,10 @@ impl Game {
                 let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
                 self.damage(t, ad, "AA");
                 self.sound("sfx_aa_hit");
-                self.fx.burst("aa_missile", "hit", hit_at, mul(m.dir, -1.0), 0.0);
+                let at = self.chr_frame(t.ptr).unwrap_or(self.caster_frame());
+                if !self.vfx_once("aa_hit", Follow::Chr(t.ptr), at) {
+                    self.fx.burst("aa_missile", "hit", hit_at, mul(m.dir, -1.0), 0.0);
+                }
             } else {
                 let feared = self.cc.iter().any(|c| c.ptr == t.ptr && c.fear && c.until > self.clock);
                 let cur = chr_mut(t.ptr).modules.data.hp as f32;
@@ -1030,7 +1074,10 @@ impl Game {
                 let dur = val(&self.c, 1, "FearDuration", m.rank);
                 self.apply_cc(t.ptr, dur, true, true, 0.0);
                 self.sound("sfx_q_hit");
-                self.fx.burst("q_fear", "hit", hit_at, mul(m.dir, -1.0), 0.0);
+                let at = self.chr_frame(t.ptr).unwrap_or(self.caster_frame());
+                if !self.vfx_once(if feared { "q_hit_feared" } else { "q_hit" }, Follow::Chr(t.ptr), at) {
+                    self.fx.burst("q_fear", "hit", hit_at, mul(m.dir, -1.0), 0.0);
+                }
             }
         }
     }
@@ -1068,17 +1115,27 @@ impl Game {
                     dmg += val(&self.c, 2, "PercentMultiplier", d.rank) * (t.max_hp - t.hp).max(0) as f32;
                 }
                 healed += self.damage(*t, dmg, "W") * vamp;
-                self.fx.burst("w_drain", "tick", add(t.pos, [0.0, t.height * 0.6, 0.0]), norm(sub(me.pos, t.pos)), 0.0);
+                let chest = add(t.pos, [0.0, t.height * 0.6, 0.0]);
+                if !self.vfx_once("w_heal_missile", Follow::ToCaster, Frame { pos: chest, fwd: norm(sub(me.pos, t.pos)), target: None }) {
+                    self.fx.burst("w_drain", "tick", chest, norm(sub(me.pos, t.pos)), 0.0);
+                }
             }
         }
         for t in &alive {
             let chest = add(t.pos, [0.0, t.height * 0.6, 0.0]);
-            self.fx.stream("w_drain", "tether_flow", t.ptr, chest, norm(sub(me.pos, t.pos)), 0.0, dt);
-            self.fx.stream("w_drain", "victim", t.ptr, add(t.pos, [0.0, t.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+            if !self.vfx_has("w_drain") {
+                self.fx.stream("w_drain", "tether_flow", t.ptr, chest, norm(sub(me.pos, t.pos)), 0.0, dt);
+                self.fx.stream("w_drain", "victim", t.ptr, add(t.pos, [0.0, t.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+            }
         }
-        self.fx.stream("w_drain", "channel", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        if !self.vfx_has("w_body") {
+            self.fx.stream("w_drain", "channel", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        }
         if healed > 0.0 {
-            self.fx.burst("w_drain", "heal", add(me.pos, [0.0, 1.0, 0.0]), [0.0, 1.0, 0.0], 0.0);
+            let at = self.caster_frame();
+            if !self.vfx_once("w_heal", Follow::Caster, at) {
+                self.fx.burst("w_drain", "heal", add(me.pos, [0.0, 1.0, 0.0]), [0.0, 1.0, 0.0], 0.0);
+            }
             let p = chr_mut(player_ptr);
             p.modules.data.hp = (p.modules.data.hp + healed.round() as i32).min(p.modules.data.max_hp);
         }
@@ -1086,7 +1143,10 @@ impl Game {
             if finished && !alive.is_empty() {
                 self.sound("sfx_w_final");
                 for t in &alive {
-                    self.fx.burst("w_drain", "final", add(t.pos, [0.0, t.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                    let at = self.chr_frame(t.ptr).unwrap_or(self.caster_frame());
+                    if !self.vfx_once("w_final", Follow::Chr(t.ptr), at) {
+                        self.fx.burst("w_drain", "final", add(t.pos, [0.0, t.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                    }
                 }
             }
             self.anim.play("w_end", true);
@@ -1102,7 +1162,9 @@ impl Game {
                 let player = chr_mut(player_ptr);
                 player.debug_flags.set_disabled_movement(true);
                 let t = t + dt;
-                self.fx.stream("r_crowstorm", "r_channel", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+                if !self.vfx_has("r_chest") {
+                    self.fx.stream("r_crowstorm", "r_channel", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+                }
                 if t < val(&self.c, 4, "ChannelTime", rank) {
                     if self.anim.id() != "r_channel" {
                         self.anim.play("r_channel", true);
@@ -1150,13 +1212,18 @@ impl Game {
                 let t = t + dt;
                 let mut tick = tick + dt;
                 let radius = val(&self.c, 4, "castRadius", rank) * tuning::RANGE_SCALE;
-                self.fx.stream("r_crowstorm", "storm", 1, me.pos, [0.0, 1.0, 0.0], radius, dt);
+                if !self.vfx_has("r_storm") {
+                    self.fx.stream("r_crowstorm", "storm", 1, me.pos, [0.0, 1.0, 0.0], radius, dt);
+                }
                 if tick >= 1.0 / tuning::R_TICKS_PER_SECOND {
                     tick = 0.0;
                     let per = (val(&self.c, 4, "DamagePerSecond", rank) + val(&self.c, 4, "APRatio", rank) * ap) / tuning::R_TICKS_PER_SECOND;
                     for h in hostiles.iter().filter(|h| flat(sub(h.pos, me.pos)) <= radius) {
                         self.damage(*h, per, "R");
-                        self.fx.burst("r_crowstorm", "hit", add(h.pos, [0.0, h.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                        let at = self.chr_frame(h.ptr).unwrap_or(self.caster_frame());
+                        if !self.vfx_once("r_hit", Follow::Chr(h.ptr), at) {
+                            self.fx.burst("r_crowstorm", "hit", add(h.pos, [0.0, h.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
+                        }
                     }
                 }
                 (t < val(&self.c, 4, "Duration", rank)).then_some(Ult::Storm { t, tick, rank })
@@ -1183,7 +1250,9 @@ impl Game {
             let fear = fear && c.modules.data.hp > 0;
             if fear {
                 let ch = read_chr(c);
-                self.fx.stream("q_fear", "feared", p, add(ch.pos, [0.0, ch.height + 0.3, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+                if !self.vfx_live.contains_key(&("feared", p)) {
+                    self.fx.stream("q_fear", "feared", p, add(ch.pos, [0.0, ch.height + 0.3, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+                }
             }
             c.debug_flags.set_disabled_secondary_actions(fear || silence);
             c.debug_flags.set_disabled_movement(fear);
@@ -1232,18 +1301,69 @@ impl Game {
         let soul = self.joint_world(&palette, &world, "Demon_Soul").unwrap_or(add(me.pos, [0.0, 1.0, 0.0]));
         let model = ModelDraw { model: 0, world, palette, visible: self.anim.visible(&self.c) };
 
-        let mut scene = Scene { models: vec![model], cam: cam_m, fov: pc.fov, near: pc.near_plane, far: pc.far_plane, world: vec![], screen: vec![], shot: None };
+        let mut scene = Scene { models: vec![model], cam: cam_m, fov: pc.fov, near: pc.near_plane, far: pc.far_plane, world: vec![], vfx: vec![], screen: vec![], shot: None };
         let view = crate::fx::View { right, up, pos: cam_pos };
         let mut crows: Vec<crate::fx::Crow> = vec![];
 
         // particles (effects sheet)
+        // League particle systems: placed on what they follow, simulated, drawn
+        let bones: Vec<(&'static str, V3)> = sheet::VFX_EVENTS
+            .iter()
+            .filter_map(|e| e.attach.strip_prefix("bone:"))
+            .chain(["L_Hand", "R_Hand", "Chest"])
+            .filter_map(|b| self.joint_world(&scene.models[0].palette, &scene.models[0].world, b).map(|p| (b, p)))
+            .collect();
+        {
+            let missiles: Vec<(usize, V3, V3)> = self.missiles.iter().map(|m| (m.id, m.pos, m.dir)).collect();
+            let alive = &self.alive_ptrs;
+            let chest_of = |p: usize| -> Option<V3> {
+                alive.contains(&p).then(|| {
+                    let ch = read_chr(chr_mut(p));
+                    add(ch.pos, [0.0, ch.height * 0.6, 0.0])
+                })
+            };
+            let place = |f: Follow| -> Option<Frame> {
+                match f {
+                    Follow::Caster => Some(Frame { pos: me.pos, fwd: face, target: None }),
+                    Follow::Bone(b) => bones.iter().find(|x| x.0 == b).map(|x| Frame { pos: x.1, fwd: face, target: None }),
+                    Follow::Chr(p) => alive.contains(&p).then(|| {
+                        let ch = read_chr(chr_mut(p));
+                        let d = [ch.pos[0] - me.pos[0], 0.0, ch.pos[2] - me.pos[2]];
+                        Frame { pos: ch.pos, fwd: if flat(d) > 0.1 { norm(d) } else { face }, target: None }
+                    }),
+                    Follow::Missile(id) => missiles.iter().find(|m| m.0 == id).map(|m| Frame { pos: m.1, fwd: norm([m.2[0], 0.0, m.2[2]]), target: None }),
+                    Follow::Beam(p) => chest_of(p).map(|c| Frame { pos: soul, fwd: face, target: Some(c) }),
+                    Follow::Fixed | Follow::ToCaster => None,
+                }
+            };
+            let mut vfx = std::mem::take(&mut self.vfx);
+            vfx.update(&self.c.vfx, self.dt, &place);
+            let theme = self.vfx_theme;
+            let recolor = |c: [f32; 4]| -> [f32; 4] {
+                match &theme {
+                    Some(t) => {
+                        let r = lolread::theme::recolor([c[0], c[1], c[2]], t);
+                        [r[0], r[1], r[2], c[3]]
+                    }
+                    None => c,
+                }
+            };
+            let mut league_crows = vec![];
+            vfx.draw(&self.c.vfx, cam_pos, right, up, &recolor, &mut scene.vfx, &mut league_crows);
+            self.vfx = vfx;
+            if let Some(raven) = &self.c.raven {
+                for (pos, fwd, size, _alpha) in league_crows.into_iter().take(32) {
+                    scene.models.push(crate::vfx::crow_draw(raven, pos, fwd, size, self.clock));
+                }
+            }
+        }
         self.fx.update(self.dt, me.pos, soul);
         let radii = [("w_drain", self.effect_radius("w_drain")), ("e_reap", self.effect_radius("e_reap")), ("r_crowstorm", self.effect_radius("r_crowstorm"))];
         let radius_of = |g: &str| radii.iter().find(|r| r.0 == g).map(|r| r.1).unwrap_or(1.0);
         self.fx.draw(&view, radius_of, &mut scene.world, &mut crows);
 
         // missiles: their heads are emitter rows too (a glowing bolt, or a real crow for Terrify)
-        for m in &self.missiles {
+        for m in self.missiles.iter().filter(|m| !self.vfx_live.contains_key(&(if m.slot == 0 { "aa_missile" } else { "q_missile" }, m.id))) {
             for e in crate::fx::rows(m.group, "missile_head") {
                 if e.render == "model" {
                     crows.push(crate::fx::Crow { pos: m.pos, forward: m.dir, scale: e.size_start, anim: self.clock + m.id as f32, alpha: 1.0 });
@@ -1263,7 +1383,7 @@ impl Game {
             scene.world.push(crate::fx::billboard("icon_q", false, at, k, 0.0, [1.0, 1.0, 1.0, 1.0], quad_uv(), &view));
         }
         // Bountiful Harvest: tendrils from his hands to every victim
-        if let Some(d) = &self.drain {
+        if let Some(d) = self.drain.as_ref().filter(|_| !self.vfx_has("w_drain")) {
             for &p in &d.targets {
                 let ch = read_chr(chr_mut(p));
                 let to = add(ch.pos, [0.0, ch.height * 0.6, 0.0]);
@@ -1396,6 +1516,86 @@ impl Game {
         sa.sa_durability = tuning::CC_IMMUNE_POISE;
         self.poise_written = tuning::CC_IMMUNE_POISE;
         broken
+    }
+
+    /// The skin's League system for a vfx_events moment and its scale, if it has one.
+    fn vfx_sys(&self, id: &str) -> Option<(u32, f32)> {
+        let row = sheet::VFX_EVENTS.iter().find(|e| e.id == id)?;
+        crate::vfx::event_system(&self.c.vfx, row.key).map(|s| (s, tuning::MODEL_SCALE * row.scale))
+    }
+
+    fn vfx_has(&self, id: &str) -> bool {
+        self.vfx_sys(id).is_some()
+    }
+
+    fn caster_frame(&self) -> Frame {
+        Frame { pos: self.snap_pos, fwd: self.snap_fwd, target: None }
+    }
+
+    fn chr_frame(&self, ptr: usize) -> Option<Frame> {
+        self.alive_ptrs.contains(&ptr).then(|| {
+            let ch = read_chr(chr_mut(ptr));
+            let d = [ch.pos[0] - self.snap_pos[0], 0.0, ch.pos[2] - self.snap_pos[2]];
+            Frame { pos: ch.pos, fwd: if flat(d) > 0.1 { norm(d) } else { self.snap_fwd }, target: None }
+        })
+    }
+
+    /// Plays a one-off League effect; false when the skin has none (the caller falls back to the effects sheet).
+    fn vfx_once(&mut self, id: &str, follow: Follow, at: Frame) -> bool {
+        let Some((sys, unit)) = self.vfx_sys(id) else { return false };
+        self.vfx.spawn(&self.c.vfx, sys, follow, at, unit, 6.0).is_some()
+    }
+
+    /// Keeps the lasting League effects in step with the game: missiles, the drain, fear, Crowstorm.
+    fn sync_vfx(&mut self) {
+        let cf = self.caster_frame();
+        let mut want: Vec<(&'static str, usize, Follow, Frame)> = vec![];
+        for m in &self.missiles {
+            want.push((if m.slot == 0 { "aa_missile" } else { "q_missile" }, m.id, Follow::Missile(m.id), Frame { pos: m.pos, fwd: norm([m.dir[0], 0.0, m.dir[2]]), target: None }));
+        }
+        if let Some(d) = &self.drain {
+            want.push(("w_body", 0, Follow::Caster, cf));
+            for &t in &d.targets {
+                if let Some(f) = self.chr_frame(t) {
+                    want.push(("w_drain", t, Follow::Beam(t), Frame { pos: add(cf.pos, [0.0, 1.0, 0.0]), fwd: cf.fwd, target: Some(add(f.pos, [0.0, 1.0, 0.0])) }));
+                    want.push(("w_target", t, Follow::Chr(t), f));
+                }
+            }
+        }
+        for c in self.cc.iter().filter(|c| c.fear && c.until > self.clock) {
+            if let Some(f) = self.chr_frame(c.ptr) {
+                want.push(("feared", c.ptr, Follow::Chr(c.ptr), f));
+            }
+        }
+        match self.ult {
+            Some(Ult::Channel { .. }) => {
+                want.push(("r_chest", 0, Follow::Bone("Chest"), cf));
+                want.push(("r_hands", 0, Follow::Bone("R_Hand"), cf));
+                want.push(("r_hands", 1, Follow::Bone("L_Hand"), cf));
+                want.push(("r_ground", 0, Follow::Caster, cf));
+            }
+            Some(Ult::Storm { .. }) => want.push(("r_storm", 0, Follow::Caster, cf)),
+            _ => {}
+        }
+        for (id, key, follow, at) in &want {
+            if self.vfx_live.contains_key(&(*id, *key)) {
+                continue;
+            }
+            if let Some((sys, unit)) = self.vfx_sys(id) {
+                if let Some(h) = self.vfx.spawn(&self.c.vfx, sys, *follow, *at, unit, 120.0) {
+                    self.vfx_live.insert((*id, *key), h);
+                }
+            }
+        }
+        let keep: HashSet<(&'static str, usize)> = want.iter().map(|w| (w.0, w.1)).collect();
+        let vfx = &mut self.vfx;
+        self.vfx_live.retain(|k, h| {
+            let on = keep.contains(k) && vfx.alive(*h);
+            if !on {
+                vfx.stop(*h);
+            }
+            on
+        });
     }
 
     fn attack_speed(&self) -> f32 {
@@ -1707,6 +1907,7 @@ impl Game {
             c.clips = s.clips;
             c.sounds.extend(s.sounds);
             c.icons.extend(s.fx);
+            c.vfx = s.vfx;
         }
         self.c = Arc::new(c);
         crate::gfx::set_cache(self.c.clone());
@@ -1717,6 +1918,13 @@ impl Game {
         self.skin = n;
         let parent = self.base.skins.iter().find(|s| s.num == n).map(|s| s.parent).unwrap_or(n);
         self.theme = lolread::theme::for_skin(n, parent, self.skin_name(n));
+        // a chroma recolours its skin's own League effects, from the skin's colour to the chroma's
+        self.vfx_theme = (n != parent).then(|| lolread::theme::for_skin(n, parent, self.skin_name(n))).flatten().map(|c| {
+            let from = lolread::theme::for_skin(parent, parent, self.skin_name(parent)).map(|p| p.hue.max(0.0)).unwrap_or(0.0);
+            lolread::theme::Theme { hue: if c.hue >= 0.0 { (c.hue - from).rem_euclid(360.0) } else { -1.0 }, ..c }
+        });
+        self.vfx.clear();
+        self.vfx_live.clear();
         let _ = std::fs::write(skin_choice_path(), n.to_string());
         log!("SKIN {n} worn: {} ({} vertices)", self.skin_name(n), self.c.model.vertices.len());
     }

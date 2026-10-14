@@ -3,7 +3,7 @@
 //! world sprites and the HUD on top of the game's back buffer right before it is presented.
 
 use crate::log;
-use crate::scene::{SCENE, Scene, Sprite};
+use crate::scene::{SCENE, Scene, Sprite, VfxMat};
 use lolread::cache::{Cache, Tex};
 use lolread::math::{self, M4};
 use std::collections::HashMap;
@@ -247,7 +247,10 @@ const SHADERS: &str = r#"
 cbuffer C : register(b0) { float4x4 mvp; float4x4 world; float4 tint; float4 light; };
 cbuffer P : register(b1) { float4x4 pal[128]; };
 Texture2D tex : register(t0);
+Texture2D tex2 : register(t1);
+Texture2D ero : register(t2);
 SamplerState smp : register(s0);
+SamplerState smpc : register(s1);
 struct VI { float3 p : POSITION; float3 n : NORMAL; float2 uv : TEXCOORD; uint4 j : BLENDINDICES; float4 w : BLENDWEIGHT; };
 struct VO { float4 p : SV_Position; float3 n : NORMAL; float2 uv : TEXCOORD; };
 VO vs(VI i) {
@@ -264,10 +267,16 @@ float4 ps(VO i) : SV_Target {
     float l = light.w + (1 - light.w) * saturate(dot(normalize(i.n), normalize(light.xyz)));
     return float4(c.rgb * l * tint.rgb, 1);
 }
-struct SI { float4 p : POSITION; float2 uv : TEXCOORD; float4 c : COLOR; };
-struct SO { float4 p : SV_Position; float2 uv : TEXCOORD; float4 c : COLOR; };
-SO svs(SI i) { SO o; o.p = i.p; o.uv = i.uv; o.c = i.c; return o; }
-float4 sps(SO i) : SV_Target { return tex.Sample(smp, i.uv) * i.c; }
+struct SI { float4 p : POSITION; float2 uv : TEXCOORD0; float4 c : COLOR; float2 uv2 : TEXCOORD1; float2 e : TEXCOORD2; };
+struct SO { float4 p : SV_Position; float2 uv : TEXCOORD0; float4 c : COLOR; float2 uv2 : TEXCOORD1; float2 e : TEXCOORD2; };
+SO svs(SI i) { SO o; o.p = i.p; o.uv = i.uv; o.c = i.c; o.uv2 = i.uv2; o.e = i.e; return o; }
+float4 sps(SO i) : SV_Target {
+    // tint.x / tint.y: the texture / multiply texture repeat (else clamped at their edges)
+    float4 c = (tint.x > 0.5 ? tex.Sample(smp, i.uv) : tex.Sample(smpc, i.uv)) * i.c * (tint.y > 0.5 ? tex2.Sample(smp, i.uv2) : tex2.Sample(smpc, i.uv2));
+    // League's alpha erosion: the map dissolves the particle as the threshold rises
+    if (i.e.y > 0) c.a *= saturate((ero.Sample(smp, i.uv).r - i.e.x) / i.e.y);
+    return c;
+}
 "#;
 
 #[repr(C)]
@@ -286,9 +295,12 @@ struct SpriteVertex {
     pos: [f32; 4],
     uv: [f32; 2],
     color: [f32; 4],
+    uv2: [f32; 2],
+    erode: [f32; 2],
 }
 
-const MAX_SPRITE_VERTS: usize = 6 * 4096;
+/// billboards, HUD and League particle triangles of one frame
+const MAX_SPRITE_VERTS: usize = 6 * 32768;
 /// Skinning palettes for every model drawn in a frame (Fiddlesticks + up to ~48 crows), 256-byte aligned.
 const PALETTE_BYTES: usize = 512 * 1024;
 
@@ -321,8 +333,8 @@ struct Renderer {
     srv_size: u32,
     root: ID3D12RootSignature,
     pso_mesh: ID3D12PipelineState,
-    pso_alpha: ID3D12PipelineState,
-    pso_add: ID3D12PipelineState,
+    /// 0 alpha, 1 additive, 2 premultiplied, 3 screen, 4 multiply
+    pso_blend: Vec<ID3D12PipelineState>,
     meshes: Vec<Mesh>,
     _textures: Vec<ID3D12Resource>,
     tex_index: HashMap<String, u32>,
@@ -493,13 +505,14 @@ impl Renderer {
             device.CreateDepthStencilView(&depth, None, dsv_heap.GetCPUDescriptorHandleForHeapStart());
 
             // root signature: b0 constants (40 dwords), b1 palette CBV, t0 table, s0 static sampler
-            let range = D3D12_DESCRIPTOR_RANGE {
+            let srv_range = |reg: u32| D3D12_DESCRIPTOR_RANGE {
                 RangeType: D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                 NumDescriptors: 1,
-                BaseShaderRegister: 0,
+                BaseShaderRegister: reg,
                 RegisterSpace: 0,
                 OffsetInDescriptorsFromTableStart: 0,
             };
+            let (range, range1, range2) = (srv_range(0), srv_range(1), srv_range(2));
             let params = [
                 D3D12_ROOT_PARAMETER {
                     ParameterType: D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
@@ -522,6 +535,20 @@ impl Renderer {
                     },
                     ShaderVisibility: D3D12_SHADER_VISIBILITY_PIXEL,
                 },
+                D3D12_ROOT_PARAMETER {
+                    ParameterType: D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+                    Anonymous: D3D12_ROOT_PARAMETER_0 {
+                        DescriptorTable: D3D12_ROOT_DESCRIPTOR_TABLE { NumDescriptorRanges: 1, pDescriptorRanges: &range1 },
+                    },
+                    ShaderVisibility: D3D12_SHADER_VISIBILITY_PIXEL,
+                },
+                D3D12_ROOT_PARAMETER {
+                    ParameterType: D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+                    Anonymous: D3D12_ROOT_PARAMETER_0 {
+                        DescriptorTable: D3D12_ROOT_DESCRIPTOR_TABLE { NumDescriptorRanges: 1, pDescriptorRanges: &range2 },
+                    },
+                    ShaderVisibility: D3D12_SHADER_VISIBILITY_PIXEL,
+                },
             ];
             let sampler = D3D12_STATIC_SAMPLER_DESC {
                 Filter: D3D12_FILTER_MIN_MAG_MIP_LINEAR,
@@ -532,11 +559,19 @@ impl Renderer {
                 ShaderVisibility: D3D12_SHADER_VISIBILITY_PIXEL,
                 ..Default::default()
             };
+            let clamp = D3D12_STATIC_SAMPLER_DESC {
+                AddressU: D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                AddressV: D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                AddressW: D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                ShaderRegister: 1,
+                ..sampler
+            };
+            let samplers = [sampler, clamp];
             let rs_desc = D3D12_ROOT_SIGNATURE_DESC {
                 NumParameters: params.len() as u32,
                 pParameters: params.as_ptr(),
-                NumStaticSamplers: 1,
-                pStaticSamplers: &sampler,
+                NumStaticSamplers: samplers.len() as u32,
+                pStaticSamplers: samplers.as_ptr(),
                 Flags: D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
             };
             let mut blob = None;
@@ -547,36 +582,41 @@ impl Renderer {
 
             let (vs, ps, svs, sps) = (compile("vs", "vs_5_0")?, compile("ps", "ps_5_0")?, compile("svs", "vs_5_0")?, compile("sps", "ps_5_0")?);
             let mesh_layout = [
-                ("POSITION", DXGI_FORMAT_R32G32B32_FLOAT, 0),
-                ("NORMAL", DXGI_FORMAT_R32G32B32_FLOAT, 12),
-                ("TEXCOORD", DXGI_FORMAT_R32G32_FLOAT, 24),
-                ("BLENDINDICES", DXGI_FORMAT_R16G16B16A16_UINT, 32),
-                ("BLENDWEIGHT", DXGI_FORMAT_R32G32B32A32_FLOAT, 40),
+                ("POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0),
+                ("NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 12),
+                ("TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 24),
+                ("BLENDINDICES", 0, DXGI_FORMAT_R16G16B16A16_UINT, 32),
+                ("BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 40),
             ];
-            let sprite_layout =
-                [("POSITION", DXGI_FORMAT_R32G32B32A32_FLOAT, 0), ("TEXCOORD", DXGI_FORMAT_R32G32_FLOAT, 16), ("COLOR", DXGI_FORMAT_R32G32B32A32_FLOAT, 24)];
-            let pso = |layout: &[(&str, DXGI_FORMAT, u32)], v: &ID3DBlob, p: &ID3DBlob, depth: bool, blend: Option<bool>| -> Result<ID3D12PipelineState> {
+            let sprite_layout = [
+                ("POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0),
+                ("TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 16),
+                ("COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 24),
+                ("TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 40),
+                ("TEXCOORD", 2, DXGI_FORMAT_R32G32_FLOAT, 48),
+            ];
+            let pso = |layout: &[(&str, u32, DXGI_FORMAT, u32)], v: &ID3DBlob, p: &ID3DBlob, depth: bool, blend: Option<(D3D12_BLEND, D3D12_BLEND)>| -> Result<ID3D12PipelineState> {
                 let names: Vec<std::ffi::CString> = layout.iter().map(|l| std::ffi::CString::new(l.0).unwrap()).collect();
                 let elems: Vec<D3D12_INPUT_ELEMENT_DESC> = layout
                     .iter()
                     .zip(&names)
                     .map(|(l, n)| D3D12_INPUT_ELEMENT_DESC {
                         SemanticName: PCSTR(n.as_ptr() as _),
-                        SemanticIndex: 0,
-                        Format: l.1,
+                        SemanticIndex: l.1,
+                        Format: l.2,
                         InputSlot: 0,
-                        AlignedByteOffset: l.2,
+                        AlignedByteOffset: l.3,
                         InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                         InstanceDataStepRate: 0,
                     })
                     .collect();
                 let mut bs = D3D12_BLEND_DESC::default();
                 bs.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8;
-                if let Some(add) = blend {
+                if let Some((src, dst)) = blend {
                     let rt = &mut bs.RenderTarget[0];
                     rt.BlendEnable = true.into();
-                    rt.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-                    rt.DestBlend = if add { D3D12_BLEND_ONE } else { D3D12_BLEND_INV_SRC_ALPHA };
+                    rt.SrcBlend = src;
+                    rt.DestBlend = dst;
                     rt.BlendOp = D3D12_BLEND_OP_ADD;
                     rt.SrcBlendAlpha = D3D12_BLEND_ZERO;
                     rt.DestBlendAlpha = D3D12_BLEND_ONE;
@@ -612,8 +652,16 @@ impl Renderer {
                 device.CreateGraphicsPipelineState(&d)
             };
             let pso_mesh = pso(&mesh_layout, &vs, &ps, true, None)?;
-            let pso_alpha = pso(&sprite_layout, &svs, &sps, false, Some(false))?;
-            let pso_add = pso(&sprite_layout, &svs, &sps, false, Some(true))?;
+            let pso_blend = [
+                (D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_INV_SRC_ALPHA),
+                (D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_ONE),
+                (D3D12_BLEND_ONE, D3D12_BLEND_INV_SRC_ALPHA),
+                (D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_INV_SRC_COLOR),
+                (D3D12_BLEND_DEST_COLOR, D3D12_BLEND_ZERO),
+            ]
+            .iter()
+            .map(|&b| pso(&sprite_layout, &svs, &sps, false, Some(b)))
+            .collect::<Result<Vec<_>>>()?;
 
             // mesh buffers (upload heap: small, static, read straight by the GPU)
             let mut models: Vec<&lolread::cache::Model> = vec![&cache.model];
@@ -645,6 +693,9 @@ impl Renderer {
                 }
             }
             for (k, t) in &cache.icons {
+                texs.push((k.clone(), t.clone()));
+            }
+            for (k, t) in &cache.vfx.textures {
                 texs.push((k.clone(), t.clone()));
             }
             texs.push(("white".into(), Tex { format: lolread::texture::DXGI_BGRA8, width: 4, height: 4, mips: vec![vec![255; 64]] }));
@@ -711,8 +762,7 @@ impl Renderer {
                 srv_size,
                 root,
                 pso_mesh,
-                pso_alpha,
-                pso_add,
+                pso_blend,
                 meshes,
                 _textures: textures,
                 tex_index,
@@ -826,29 +876,42 @@ impl Renderer {
 
             // sprites: world ones projected here, HUD from the 1920x1080 reference frame (scaled by height, centred)
             let mut verts: Vec<SpriteVertex> = Vec::with_capacity(scene.world.len() * 6 + scene.screen.len() * 6);
-            let mut batches: Vec<(&'static str, bool, u32, u32)> = vec![];
+            let mut batches: Vec<(VfxMat, u32, u32)> = vec![];
+            let project = |p: [f32; 3]| -> [f32; 4] {
+                let v = [p[0], p[1], p[2], 1.0];
+                let mut o = [0f32; 4];
+                for c in 0..4 {
+                    o[c] = (0..4).map(|r| v[r] * view_proj[r * 4 + c]).sum();
+                }
+                o
+            };
+            let mut add_batch = |mat: VfxMat, start: u32, n: u32| match batches.last_mut() {
+                Some(b) if b.0 == mat => b.2 += n,
+                _ => batches.push((mat, start, n)),
+            };
+            for (mat, tris) in &scene.vfx {
+                let n = tris.len() / 3 * 3;
+                if n == 0 || verts.len() + n > MAX_SPRITE_VERTS {
+                    continue;
+                }
+                let start = verts.len() as u32;
+                for v in &tris[..n] {
+                    verts.push(SpriteVertex { pos: project(v.pos), uv: v.uv, color: v.color, uv2: v.uv2, erode: v.erode });
+                }
+                add_batch(*mat, start, n as u32);
+            }
             let mut push = |s: &Sprite, clip: [[f32; 4]; 4], verts: &mut Vec<SpriteVertex>| {
                 if verts.len() + 6 > MAX_SPRITE_VERTS {
                     return;
                 }
                 let start = verts.len() as u32;
                 for k in [0, 1, 2, 0, 2, 3] {
-                    verts.push(SpriteVertex { pos: clip[k], uv: s.uv[k], color: s.color });
+                    verts.push(SpriteVertex { pos: clip[k], uv: s.uv[k], color: s.color, uv2: [0.0; 2], erode: [0.0; 2] });
                 }
-                match batches.last_mut() {
-                    Some(b) if b.0 == s.tex && b.1 == s.additive => b.3 += 6,
-                    _ => batches.push((s.tex, s.additive, start, 6)),
-                }
+                add_batch(VfxMat { tex: s.tex, mult: "white", erode: "white", blend: s.additive as u8, wrap: 3 }, start, 6);
             };
             for s in &scene.world {
-                let clip = s.pos.map(|p| {
-                    let v = [p[0], p[1], p[2], 1.0];
-                    let mut o = [0f32; 4];
-                    for c in 0..4 {
-                        o[c] = (0..4).map(|r| v[r] * view_proj[r * 4 + c]).sum();
-                    }
-                    o
-                });
+                let clip = s.pos.map(project);
                 if clip.iter().all(|c| c[3] <= 0.05) {
                     continue;
                 }
@@ -870,10 +933,15 @@ impl Renderer {
                         StrideInBytes: std::mem::size_of::<SpriteVertex>() as u32,
                     }]),
                 );
-                for (tex, add, start, count) in batches {
-                    let Some(t) = self.srv(tex).or_else(|| self.srv("white")) else { continue };
-                    list.SetPipelineState(if add { &self.pso_add } else { &self.pso_alpha });
+                let white = self.srv("white");
+                for (mat, start, count) in batches {
+                    let (Some(t), Some(m), Some(e)) = (self.srv(mat.tex).or(white), self.srv(mat.mult).or(white), self.srv(mat.erode).or(white)) else { continue };
+                    list.SetPipelineState(&self.pso_blend[(mat.blend as usize).min(4)]);
                     list.SetGraphicsRootDescriptorTable(2, t);
+                    list.SetGraphicsRootDescriptorTable(3, m);
+                    list.SetGraphicsRootDescriptorTable(4, e);
+                    let flags = [(mat.wrap & 1) as f32, ((mat.wrap >> 1) & 1) as f32];
+                    list.SetGraphicsRoot32BitConstants(0, 2, flags.as_ptr() as _, 32);
                     list.DrawInstanced(count, 1, start, 0);
                 }
             }

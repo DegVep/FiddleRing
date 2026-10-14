@@ -169,6 +169,48 @@
       "value": 3.0,
       "unit": "s",
       "why": "the poise he would really have (his Elden Ring maximum) refills after this long without being hit, like the game's own; when hits would have broken it while he drains, Bountiful Harvest is interrupted"
+    },
+    {
+      "id": "vfx_blend_0",
+      "value": 0.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 0 -> none/opaque; League does not document them, read off which textures use each"
+    },
+    {
+      "id": "vfx_blend_1",
+      "value": 0.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 1 -> alpha blend (dark smoke, crows, shadowy beams); League does not document them, read off which textures use each"
+    },
+    {
+      "id": "vfx_blend_2",
+      "value": 1.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 2 -> additive (bright sparks, flares); League does not document them, read off which textures use each"
+    },
+    {
+      "id": "vfx_blend_3",
+      "value": 1.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 3 -> unused by Fiddlesticks; additive; League does not document them, read off which textures use each"
+    },
+    {
+      "id": "vfx_blend_4",
+      "value": 1.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 4 -> additive: as premultiplied it drew opaque black squares (textures whose black is meant to vanish)"
+    },
+    {
+      "id": "vfx_blend_5",
+      "value": 3.0,
+      "unit": "renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply",
+      "why": "League particle blendMode 5 -> screen (soft glows, rays, embers); League does not document them, read off which textures use each"
+    },
+    {
+      "id": "vfx_fly_time",
+      "value": 0.45,
+      "unit": "s",
+      "why": "League effects that fly from a drained enemy to Fiddlesticks (W heal) take this long"
     }
   ]
 }

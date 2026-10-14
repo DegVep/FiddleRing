@@ -176,6 +176,7 @@ fn prepare(args: &[String]) -> Result<String> {
         sounds: sounds.clone(),
         raven: build_raven(&main_wad, &mut found_assets),
         skins,
+        vfx: obj(&skin, &skin_obj_path(0)).map(|o| build_vfx(&main_wad, &skin, &o.as_value())).unwrap_or_default(),
     };
     std::fs::write(out.join("fiddlesticks.bin"), cache::save(&c)?)?;
 
@@ -752,7 +753,8 @@ fn prepare_skin(args: &[String], n: u32) -> Result<String> {
     let name = client_skin_names(&champions, &locale).remove(&n).unwrap_or_default();
     let fx = skin_fx(&main_wad, n, parent, &name);
 
-    let c = SkinCache { version: cache::CACHE_VERSION, num: n, model, clips, sounds, fx };
+    let vfx = build_vfx(&main_wad, &skin, &so);
+    let c = SkinCache { version: cache::CACHE_VERSION, num: n, model, clips, sounds, fx, vfx };
     let tmp = out.join(format!("skins/skin{n}.tmp"));
     std::fs::write(&tmp, cache::save_skin(&c)?)?;
     std::fs::rename(&tmp, out.join(format!("skins/skin{n}.bin")))?;
@@ -932,4 +934,106 @@ fn skin_fx(wad: &Wad, n: u32, parent: u32, name: &str) -> BTreeMap<String, Tex> 
         }
     }
     fx
+}
+
+// ---------------------------------------------------------------- League particle systems
+
+/// A vfx_events key as League hashes it: a name (FNV-1a, lowercase) or "#hex".
+fn vfx_key(k: &str) -> u32 {
+    match k.strip_prefix('#') {
+        Some(h) => u32::from_str_radix(h, 16).unwrap_or(0),
+        None => fnv1a(k),
+    }
+}
+
+/// The particle systems a skin uses for the vfx_events sheet (and their child systems), with their textures and
+/// meshes, read through the skin's resource map from its bin and the bins it depends on.
+fn build_vfx(wad: &Wad, skin: &Bin, skin_obj: &Value) -> lolread::vfx::VfxLib {
+    use lolread::vfx::{Child, Prim};
+    let mut lib = lolread::vfx::VfxLib::default();
+    let mut bins: Vec<Bin> = skin.deps.iter().filter_map(|d| wad.read(&d.to_ascii_lowercase()).ok().and_then(|b| bin::parse(&b).ok())).collect();
+    bins.push(Bin { deps: vec![], objects: skin.objects.iter().map(|o| bin::Object { path: o.path, class: o.class, fields: o.fields.clone() }).collect() });
+    let Some(Value::ObjLink(res)) = skin_obj.field("mResourceResolver") else { return lib };
+    let Some(resolver) = bins.iter().flat_map(|b| b.objects.iter()).find(|o| o.path == *res) else { return lib };
+    let mut all_keys: HashMap<u32, u32> = HashMap::new();
+    if let Some(Value::Map(m)) = resolver.field("resourceMap") {
+        for (k, v) in m {
+            if let (Value::Hash(k), Value::ObjLink(p)) = (k, v) {
+                all_keys.insert(*k, *p);
+            }
+        }
+    }
+    let defs: HashMap<u32, &bin::Object> = lolread::vfx::systems_in(&bins).map(|o| (o.path, o)).collect();
+
+    // the sheet's keys, then every child they spawn
+    let mut todo: Vec<u32> = sheet::VFX_EVENTS.iter().filter_map(|e| all_keys.get(&vfx_key(e.key)).copied()).collect();
+    for e in sheet::VFX_EVENTS {
+        if let Some(p) = all_keys.get(&vfx_key(e.key)) {
+            lib.keys.insert(vfx_key(e.key), *p);
+        }
+    }
+    while let Some(path) = todo.pop() {
+        if lib.systems.contains_key(&path) {
+            continue;
+        }
+        let Some(o) = defs.get(&path) else { continue };
+        let sys = lolread::vfx::system(o, &format!("{path:08x}"));
+        for em in &sys.emitters {
+            for c in &em.children {
+                match c {
+                    Child::Key(k) => {
+                        if let Some(p) = all_keys.get(k) {
+                            lib.keys.insert(*k, *p);
+                            todo.push(*p);
+                        }
+                    }
+                    Child::System(p) => todo.push(*p),
+                }
+            }
+        }
+        lib.systems.insert(path, sys);
+    }
+
+    // textures and meshes they draw with
+    let mut tex_paths: Vec<String> = vec![];
+    let mut mesh_names: Vec<(String, String)> = vec![];
+    for sys in lib.systems.values() {
+        for em in &sys.emitters {
+            tex_paths.push(em.texture.clone());
+            if let Some(m) = &em.mult {
+                tex_paths.push(m.texture.clone());
+            }
+            if let Some(e) = &em.erosion {
+                tex_paths.push(e.map.clone());
+            }
+            if let Prim::Mesh { mesh } = &em.prim {
+                let dir = em.texture.rsplit_once('/').map(|d| d.0).unwrap_or("ASSETS/Characters/Fiddlesticks/Skins/Base/Particles");
+                mesh_names.push((mesh.clone(), dir.to_string()));
+            }
+        }
+    }
+    for p in tex_paths {
+        if p.is_empty() || lib.textures.contains_key(&p) {
+            continue;
+        }
+        if let Some(t) = wad.read(&p.to_ascii_lowercase()).ok().and_then(|b| texture::read_any(&b).ok()) {
+            lib.textures.insert(p, to_tex(t));
+        }
+    }
+    for (name, dir) in mesh_names {
+        if lib.meshes.contains_key(&name) {
+            continue;
+        }
+        let cands = if name.contains('/') {
+            vec![name.clone()]
+        } else {
+            vec![format!("{dir}/{name}"), format!("ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/{name}")]
+        };
+        if let Some(m) = cands.iter().find_map(|c| wad.read(&c.to_ascii_lowercase()).ok().and_then(|b| lolread::vfx::read_scb(&b).ok())) {
+            lib.meshes.insert(name, m);
+        }
+    }
+    let emitters: usize = lib.systems.values().map(|s| s.emitters.len()).sum();
+    println!("vfx: {} keys, {} systems, {emitters} emitters, {} textures, {} meshes", lib.keys.len(), lib.systems.len(), lib.textures.len(), lib.meshes.len());
+    lib
 }

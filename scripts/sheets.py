@@ -70,6 +70,9 @@ def preflight(release=False, verify_path=None):
         ref(f"er_actions[{r['id']}].use", r["use"], {"Fiddlesticks", "blocked", "kept"})
     for r in s["er_menus"]["rows"]:
         ref(f"er_menus[{r['id']}].action", r["action"], {"hide", "close", "keep"})
+    for r in s["vfx_events"]["rows"]:
+        if not (r["attach"] in ("caster", "target", "point", "missile", "beam", "fly_to_caster") or r["attach"].startswith("bone:")):
+            problems.append(f"vfx_events[{r['id']}].attach: '{r['attach']}' unknown")
     for r in s["skins"]["rows"]:
         if not re.fullmatch(r"(skin:\d+|chroma:.+)", r["match"]):
             problems.append(f"skins[{r['id']}].match: '{r['match']}' is neither skin:<n> nor chroma:<word>")
@@ -214,6 +217,13 @@ def gen():
     out.append("/// Elden Ring screens (er_menus sheet): hide Fiddlesticks on them / close them as they open.")
     out.append("pub const HIDE_ON_UI: &[usize] = &[" + ", ".join(str(r["ui_index"]) for r in s["er_menus"]["rows"] if r["action"] == "hide") + "];")
     out.append("pub const CLOSE_UI: &[usize] = &[" + ", ".join(str(r["ui_index"]) for r in s["er_menus"]["rows"] if r["action"] == "close") + "];")
+    out.append("")
+
+    out.append("pub struct VfxEvent { pub id: &'static str, pub key: &'static str, pub attach: &'static str, pub scale: f32 }")
+    out.append("pub const VFX_EVENTS: &[VfxEvent] = &[")
+    for r in s["vfx_events"]["rows"]:
+        out.append(f"    VfxEvent {{ id: {rs_str(r['id'])}, key: {rs_str(r['key'])}, attach: {rs_str(r['attach'])}, scale: {float(r['scale'])} }},")
+    out.append("];")
     out.append("")
 
     out.append("pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }")

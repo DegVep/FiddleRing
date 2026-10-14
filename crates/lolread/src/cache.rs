@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 7;
+pub const CACHE_VERSION: u32 = 10;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {
@@ -106,6 +106,8 @@ pub struct Cache {
     pub raven: Option<(Model, Clip)>,
     /// every skin and chroma in the install (icons in `icons` as skin_icon_<num>)
     pub skins: Vec<SkinInfo>,
+    /// the base skin's League particle systems used by the vfx_events sheet
+    pub vfx: crate::vfx::VfxLib,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -128,6 +130,8 @@ pub struct SkinCache {
     pub sounds: BTreeMap<String, Vec<String>>,
     /// league_assets id -> the skin's version (its own particle textures, ability icons in its colours)
     pub fx: BTreeMap<String, Tex>,
+    /// the skin's own League particle systems
+    pub vfx: crate::vfx::VfxLib,
 }
 
 impl Spell {

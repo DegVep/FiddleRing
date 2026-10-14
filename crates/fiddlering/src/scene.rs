@@ -14,6 +14,29 @@ pub struct Sprite {
     pub color: [f32; 4],
 }
 
+/// How a League particle draws: its texture, multiply texture and erosion map (texture keys, "white" when unused)
+/// and its blend (0 alpha, 1 additive, 2 premultiplied, 3 screen, 4 multiply).
+#[derive(Clone, Copy, PartialEq)]
+pub struct VfxMat {
+    pub tex: &'static str,
+    pub mult: &'static str,
+    pub erode: &'static str,
+    pub blend: u8,
+    /// bit 1: the texture repeats, bit 2: the multiply texture repeats (else clamped at the edges)
+    pub wrap: u8,
+}
+
+#[derive(Clone, Copy)]
+pub struct VfxVert {
+    pub pos: [f32; 3],
+    pub uv: [f32; 2],
+    /// multiply texture uv
+    pub uv2: [f32; 2],
+    pub color: [f32; 4],
+    /// erosion: threshold, feather (feather 0 = off)
+    pub erode: [f32; 2],
+}
+
 #[derive(Clone, Default)]
 pub struct Scene {
     /// Fiddlesticks (model 0) and his crows (model 1) in the world
@@ -25,6 +48,8 @@ pub struct Scene {
     pub far: f32,
     /// billboards and beams in world space (metres)
     pub world: Vec<Sprite>,
+    /// League particles in world space: triangle lists by material, drawn in order before the billboards
+    pub vfx: Vec<(VfxMat, Vec<VfxVert>)>,
     /// HUD in a 1920x1080 reference frame (z unused)
     pub screen: Vec<Sprite>,
     /// save this frame as a PNG at this path (test runs)

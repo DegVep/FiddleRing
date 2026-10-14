@@ -9,7 +9,8 @@ pub fn run(args: &[String]) -> Result<()> {
         // --dumptex <cache> <outdir>: every cached texture's top mip as PNG (decoded BC1/BC3/BGRA)
         let c = lolread::cache::load(&std::fs::read(&args[2])?)?;
         std::fs::create_dir_all(&args[3])?;
-        for (k, t) in c.icons.iter() {
+        let vfx: Vec<(String, &lolread::cache::Tex)> = c.vfx.textures.iter().map(|(k, t)| (k.rsplit('/').next().unwrap_or(k).replace('.', "_"), t)).collect();
+        for (k, t) in c.icons.iter().map(|(k, t)| (k.clone(), t)).chain(vfx) {
             let (w, h) = (t.width as usize, t.height as usize);
             let Some(px) = lolread::texture::decode_rgba(t.format, t.width, t.height, &t.mips[0]) else {
                 println!("{k}: format {} skipped", t.format);

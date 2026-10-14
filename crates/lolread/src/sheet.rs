@@ -224,6 +224,34 @@ pub const ABILITY_ACTION_BITS: &[u32] = &[0, 1, 2, 3, 28];
 pub const HIDE_ON_UI: &[usize] = &[6, 37, 61];
 pub const CLOSE_UI: &[usize] = &[29, 31];
 
+pub struct VfxEvent { pub id: &'static str, pub key: &'static str, pub attach: &'static str, pub scale: f32 }
+pub const VFX_EVENTS: &[VfxEvent] = &[
+    VfxEvent { id: "aa_cast", key: "FiddleSticks_BA_Cas", attach: "bone:L_Hand", scale: 1.0 },
+    VfxEvent { id: "aa_missile", key: "Fiddlesticks_BA_mis", attach: "missile", scale: 1.0 },
+    VfxEvent { id: "aa_hit", key: "FiddleSticks_BasicAttack_tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "melee1_hit", key: "FiddleSticks_BA_1_Melee_tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "melee2_hit", key: "FiddleSticks_BA_2_Melee_tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "q_cast", key: "FiddleSticks_Q_Cas", attach: "caster", scale: 1.0 },
+    VfxEvent { id: "q_missile", key: "#c529563a", attach: "missile", scale: 1.0 },
+    VfxEvent { id: "q_hit", key: "FiddleSticks_Q_1_tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "q_hit_feared", key: "FiddleSticks_Q_2_Tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "feared", key: "Fiddlesticks_Terrify_Buff", attach: "target", scale: 1.0 },
+    VfxEvent { id: "w_cast", key: "FiddleSticks_W_cas", attach: "caster", scale: 1.0 },
+    VfxEvent { id: "w_body", key: "FiddleSticks_W_Body_Tendrils", attach: "caster", scale: 1.0 },
+    VfxEvent { id: "w_drain", key: "#fe9f5e1d", attach: "beam", scale: 1.0 },
+    VfxEvent { id: "w_target", key: "FiddleSticks_W_Tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "w_heal_missile", key: "FiddleSticks_W_Mis", attach: "fly_to_caster", scale: 1.0 },
+    VfxEvent { id: "w_final", key: "#c03dac2b", attach: "target", scale: 1.0 },
+    VfxEvent { id: "w_heal", key: "FiddleSticks_W_Healing_Sparks", attach: "caster", scale: 1.0 },
+    VfxEvent { id: "e_cast", key: "FiddleSticks_E_Cut", attach: "point", scale: 1.0 },
+    VfxEvent { id: "e_hit", key: "Fiddlesticks_E_Tar", attach: "target", scale: 1.0 },
+    VfxEvent { id: "r_chest", key: "Fiddlesticks_R_Channel_Chest", attach: "bone:Chest", scale: 1.0 },
+    VfxEvent { id: "r_hands", key: "Fiddlesticks_R_Channel_Hands", attach: "bone:R_Hand", scale: 1.0 },
+    VfxEvent { id: "r_ground", key: "FiddleSticks_R_Channel_Ground_Glow", attach: "caster", scale: 1.0 },
+    VfxEvent { id: "r_storm", key: "Fiddlesticks_R_AOE", attach: "caster", scale: 1.6 },
+    VfxEvent { id: "r_hit", key: "FiddleSticks_R_Tar", attach: "target", scale: 1.0 },
+];
+
 pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }
 pub const SKIN_THEMES: &[SkinTheme] = &[
     SkinTheme { id: "base", matches: "skin:0", hue: -1.0, sat: 1.0, val: 1.0 },
@@ -310,4 +338,18 @@ pub mod tuning {
     pub const CC_IMMUNE_POISE: f32 = 100000.0;
     /// the poise he would really have (his Elden Ring maximum) refills after this long without being hit, like the game's own; when hits would have broken it while he drains, Bountiful Harvest is interrupted (s)
     pub const CC_POISE_RESET: f32 = 3.0;
+    /// League particle blendMode 0 -> none/opaque; League does not document them, read off which textures use each (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_0: f32 = 0.0;
+    /// League particle blendMode 1 -> alpha blend (dark smoke, crows, shadowy beams); League does not document them, read off which textures use each (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_1: f32 = 0.0;
+    /// League particle blendMode 2 -> additive (bright sparks, flares); League does not document them, read off which textures use each (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_2: f32 = 1.0;
+    /// League particle blendMode 3 -> unused by Fiddlesticks; additive; League does not document them, read off which textures use each (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_3: f32 = 1.0;
+    /// League particle blendMode 4 -> additive: as premultiplied it drew opaque black squares (textures whose black is meant to vanish) (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_4: f32 = 1.0;
+    /// League particle blendMode 5 -> screen (soft glows, rays, embers); League does not document them, read off which textures use each (renderer blend: 0 alpha, 1 add, 2 premultiplied, 3 screen, 4 multiply)
+    pub const VFX_BLEND_5: f32 = 3.0;
+    /// League effects that fly from a drained enemy to Fiddlesticks (W heal) take this long (s)
+    pub const VFX_FLY_TIME: f32 = 0.45;
 }
