@@ -222,13 +222,7 @@
       "id": "hide_er_bars",
       "value": 1.0,
       "unit": "1 = on",
-      "why": "Elden Ring's own HP/FP/stamina bars get zero values in the HUD's display copy (CSFeManImp.frontend_values) each frame; hud_state HideAll was tried and also hid the enemies' health"
-    },
-    {
-      "id": "hide_er_equip",
-      "value": 1.0,
-      "unit": "1 = on",
-      "why": "Elden Ring's equipment HUD (weapons, flasks, spells, quick items) is hidden (frontend_values.enable_equip_hud off each frame, while hide_er_bars is on)"
+      "why": "Elden Ring's HUD is hidden (CSFeManImp.hud_state HideAll, set after MenuMan each frame; zeroing its values did nothing) and the mod draws enemy health bars and a boss bar itself. HideAll also hides the compass and rune count"
     },
     {
       "id": "item_offer_delay",

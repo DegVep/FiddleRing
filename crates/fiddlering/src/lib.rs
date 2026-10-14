@@ -211,6 +211,13 @@ fn boot() {
         },
         CSTaskGroupIndex::ChrIns_PreBehaviorSafe,
     );
+    let h4 = task.run_recurring(
+        |_: &FD4TaskData| {
+            let _ = catch_unwind(game::Game::hide_vanilla_hud);
+        },
+        CSTaskGroupIndex::GameFlowStep_Post,
+    );
+    std::mem::forget(h4);
     std::mem::forget(h3);
     std::mem::forget(h1);
     std::mem::forget(h2);

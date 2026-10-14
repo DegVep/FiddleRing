@@ -366,10 +366,8 @@ pub mod tuning {
     pub const VFX_FLY_TIME: f32 = 0.45;
     /// how fast Fiddlesticks' model turns to a new direction (higher = snappier; ~12 turns most of the way in 0.2 s) instead of snapping (1/s)
     pub const MODEL_TURN_RATE: f32 = 12.0;
-    /// Elden Ring's own HP/FP/stamina bars get zero values in the HUD's display copy (CSFeManImp.frontend_values) each frame; hud_state HideAll was tried and also hid the enemies' health (1 = on)
+    /// Elden Ring's HUD is hidden (CSFeManImp.hud_state HideAll, set after MenuMan each frame; zeroing its values did nothing) and the mod draws enemy health bars and a boss bar itself. HideAll also hides the compass and rune count (1 = on)
     pub const HIDE_ER_BARS: f32 = 1.0;
-    /// Elden Ring's equipment HUD (weapons, flasks, spells, quick items) is hidden (frontend_values.enable_equip_hud off each frame, while hide_er_bars is on) (1 = on)
-    pub const HIDE_ER_EQUIP: f32 = 1.0;
     /// after a boss dies, the item choice opens once every boss health bar has been gone this long (a boss's second phase keeps its bar) (s)
     pub const ITEM_OFFER_DELAY: f32 = 2.0;
 }

@@ -142,6 +142,8 @@ pub struct Game {
     menu_keys: [bool; 6],
     /// the Elden Ring character whose progress is loaded (save slot + name)
     save_key: Option<String>,
+    /// hostiles near him this frame, for their health bars
+    hostile_ptrs: Vec<usize>,
     /// ability power this frame (runes + items), for the stats box
     ap_total: f32,
     /// League items owned (ids), offered three at a time when a boss dies
@@ -356,6 +358,7 @@ impl Game {
             skin_note: None,
             menu_keys: [false; 6],
             save_key: None,
+            hostile_ptrs: vec![],
             ap_total: 0.0,
             items: vec![],
             offer: None,
@@ -600,6 +603,68 @@ impl Game {
         }
     }
 
+    /// Elden Ring's HUD is hidden (it would also hide enemies' health), so: League-style bars over wounded
+    /// enemies near him, and one wide bar at the top for a boss.
+    fn draw_health_bars(&self, me: &Chr, view: &crate::fx::View, scene: &mut Scene) {
+        if tuning::HIDE_ER_BARS <= 0.5 {
+            return;
+        }
+        let bar = |c: V3, w: f32, h: f32, color: [f32; 4]| -> Sprite {
+            let r = mul(view.right, w * 0.5);
+            let u = mul(view.up, h * 0.5);
+            Sprite { tex: "white", additive: false, pos: [add(sub(c, r), u), add(add(c, r), u), sub(add(c, r), u), sub(sub(c, r), u)], uv: quad_uv(), color }
+        };
+        let mut boss: Option<Chr> = None;
+        for &p in &self.hostile_ptrs {
+            if !self.alive_ptrs.contains(&p) {
+                continue;
+            }
+            let ch = read_chr(chr_mut(p));
+            if ch.hp <= 0 || ch.max_hp <= 0 {
+                continue;
+            }
+            if self.boss_ptrs.contains(&p) {
+                boss = Some(ch);
+                continue;
+            }
+            if ch.hp >= ch.max_hp || len(sub(ch.pos, me.pos)) > 40.0 {
+                continue;
+            }
+            let frac = (ch.hp as f32 / ch.max_hp as f32).clamp(0.0, 1.0);
+            let (w, h) = (1.1, 0.11);
+            let top = add(ch.pos, [0.0, ch.height + 0.35, 0.0]);
+            scene.world.push(bar(top, w + 0.05, h + 0.05, [0.0, 0.0, 0.0, 0.8]));
+            let left = sub(top, mul(view.right, w * 0.5));
+            scene.world.push(bar(add(left, mul(view.right, w * frac * 0.5)), w * frac, h, [0.86, 0.16, 0.12, 1.0]));
+        }
+        if let Some(b) = boss {
+            let frac = (b.hp as f32 / b.max_hp as f32).clamp(0.0, 1.0);
+            let (x, y, w, h) = (560.0, 64.0, 800.0, 16.0);
+            let rect = |x: f32, y: f32, w: f32, h: f32, color: [f32; 4]| Sprite {
+                tex: "white",
+                additive: false,
+                pos: [[x, y, 0.], [x + w, y, 0.], [x + w, y + h, 0.], [x, y + h, 0.]],
+                uv: quad_uv(),
+                color,
+            };
+            scene.screen.push(rect(x - 3.0, y - 3.0, w + 6.0, h + 6.0, [0.0, 0.0, 0.0, 0.85]));
+            scene.screen.push(rect(x - 1.5, y - 1.5, w + 3.0, h + 3.0, [0.78, 0.67, 0.43, 1.0]));
+            scene.screen.push(rect(x, y, w, h, [0.05, 0.02, 0.02, 1.0]));
+            scene.screen.push(rect(x, y, w * frac, h, [0.80, 0.12, 0.10, 1.0]));
+            scene.screen.extend(font::text(&format!("{} / {}", b.hp, b.max_hp), 960.0, y + 1.0, h - 2.0, [1.0, 1.0, 1.0, 1.0]));
+        }
+    }
+
+    /// Runs after Elden Ring's MenuMan and before Scaleform draws: its HUD is hidden (HideAll; writing at DrawBegin
+    /// came too late, and zeroing its bar values did nothing). The mod draws enemy and boss health itself.
+    pub fn hide_vanilla_hud() {
+        let Ok(fe) = (unsafe { eldenring::cs::CSFeManImp::instance_mut() }) else { return };
+        // ShowAll is the Esc menu: leave it be
+        if tuning::HIDE_ER_BARS > 0.5 && fe.hud_state != eldenring::cs::CSFeManHudState::ShowAll {
+            fe.hud_state = eldenring::cs::CSFeManHudState::HideAll;
+        }
+    }
+
     pub fn block_inputs() {
         unsafe {
             if let Ok(w) = WorldChrMan::instance_mut() {
@@ -625,25 +690,6 @@ impl Game {
         }
 
         self.watch_menus();
-        // Elden Ring's own HP / FP / stamina bars: Fiddlesticks' HUD shows his health instead (display copy only)
-        if tuning::HIDE_ER_BARS > 0.5 {
-            if let Ok(fe) = unsafe { eldenring::cs::CSFeManImp::instance_mut() } {
-                // (hud_state HideAll also hid the enemies' health: instead the bars get nothing to draw)
-                let v = &mut fe.frontend_values;
-                v.player_hp = 0;
-                v.max_recoverable_hp = 0;
-                v.hp_max_uncapped = 0;
-                v.hp_max_uncapped_difference = 0;
-                v.fp = 0;
-                v.fp_max = 0;
-                v.stamina = 0;
-                v.stamina_max = 0;
-                // and its equipment HUD (weapons, flasks, spells, quick items): Fiddlesticks uses none
-                if tuning::HIDE_ER_EQUIP > 0.5 {
-                    fe.frontend_values.enable_equip_hud = false;
-                }
-            }
-        }
         self.update_skins();
         self.update_items();
         // loading screens (er_menus sheet): nothing of Fiddlesticks on them
@@ -759,6 +805,7 @@ impl Game {
             self.in_range[s] = hostiles.iter().any(|h| len(sub(h.pos, me.pos)) <= range);
         }
         self.alive_ptrs = alive.clone();
+        self.hostile_ptrs = hostiles.iter().map(|h| h.ptr).collect();
         self.track_bosses(wcm);
         self.update_burns(dt);
         self.snap_pos = me.pos;
@@ -1577,6 +1624,7 @@ impl Game {
                 s.color = [c[0], c[1], c[2], s.color[3]];
             }
         }
+        self.draw_health_bars(&me, &view, &mut scene);
         // talking to someone (er_menus action hud): no HUD over the dialogue, nor between its lines
         if sheet::HUD_HIDE_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
             self.hud_hidden_until = self.clock + 1.5;
@@ -1929,7 +1977,7 @@ impl Game {
                         ("Daño de ataque", format!("{ad:.0}"), [0.95, 0.62, 0.30, 1.0]),
                         ("Poder de habilidad", format!("{:.0}", self.ap_total), [0.62, 0.55, 0.98, 1.0]),
                         ("Vel. de ataque", format!("{:.2}", self.attack_speed()), [0.95, 0.85, 0.40, 1.0]),
-                        ("Vel. de habilidad", format!("{haste:.0}"), [0.55, 0.85, 0.95, 1.0]),
+                        ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), [0.55, 0.85, 0.95, 1.0]),
                         ("Pen. mágica", pen_txt, [0.80, 0.45, 0.95, 1.0]),
                         ("Alcance", format!("{:.0}", self.stat("attack_range")), [0.75, 0.75, 0.70, 1.0]),
                     ];
