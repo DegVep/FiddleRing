@@ -122,6 +122,8 @@ struct Pending {
     target: Option<usize>,
     point: V3,
     rank: u32,
+    /// basic attack at melee range: lands at the end of the windup, no missile
+    melee: bool,
 }
 
 pub struct Game {
@@ -164,6 +166,9 @@ pub struct Game {
     dirty: bool,
     kills: u32,
     seen_teams: HashSet<u8>,
+    /// the closest non-player characters this frame (chr id, team, hp, 3D and flat distance), logged when a cast finds no target
+    near: Vec<(u32, u8, i32, f32, f32)>,
+    no_target_logged: f32,
     frame: u64,
     hidden_logged: bool,
     dt: f32,
@@ -309,6 +314,8 @@ impl Game {
             dirty: false,
             kills: 0,
             seen_teams: HashSet::new(),
+            near: Vec::new(),
+            no_target_logged: -10.0,
             frame: 0,
             hidden_logged: false,
             dt: 0.0,
@@ -522,6 +529,7 @@ impl Game {
         // characters near the player this frame
         let mut alive = HashSet::new();
         let mut hostiles: Vec<Chr> = vec![];
+        self.near.clear();
         for e in wcm.chr_inses_by_distance.iter() {
             let c = unsafe { e.chr_ins.as_ref() };
             let p = c as *const ChrIns as usize;
@@ -530,6 +538,10 @@ impl Game {
             }
             alive.insert(p);
             let ch = read_chr(c);
+            if self.near.len() < 6 {
+                let d = sub(ch.pos, me.pos);
+                self.near.push((c.character_id, c.team_type, ch.hp, len(d), flat(d)));
+            }
             if self.test && self.status_t == 0.0 && len(sub(ch.pos, me.pos)) < 30.0 {
                 log!("near chr {} team {} hp {} at {:.1}m", c.character_id, c.team_type, ch.hp, len(sub(ch.pos, me.pos)));
             }
@@ -815,8 +827,11 @@ impl Game {
             0 | 1 => match pick(range) {
                 Some(t) => (Some(t.ptr), t.pos),
                 None => {
-                    if slot == 1 {
-                        log!("Q: no enemy within {range:.1} m");
+                    // say who was around, to spot enemies whose team the sheet does not count as hostile
+                    if self.clock - self.no_target_logged > 2.0 {
+                        self.no_target_logged = self.clock;
+                        let near: Vec<String> = self.near.iter().map(|(id, team, hp, d, dh)| format!("c{id} team {team} hp {hp} {d:.1}m (flat {dh:.1})")).collect();
+                        log!("{}: no enemy within {range:.1} m; nearest: {}", ab.id, near.join(", "));
                     }
                     return;
                 }
@@ -838,14 +853,30 @@ impl Game {
         };
         self.mana -= mana;
         self.cd[slot] = cd;
-        self.anim.play(if slot == 0 && self.frame % 2 == 0 { "attack2" } else { ab.anim }, true);
+        // basic attack: League's melee swipe when the target is close, otherwise the ranged cast
+        let melee = slot == 0 && flat(sub(point, me.pos)) <= tuning::MELEE_RANGE;
+        let alt = self.frame % 2 == 0;
+        let clip = match (slot, melee, alt) {
+            (0, true, true) => "melee2",
+            (0, true, false) => "melee1",
+            (0, false, true) => "attack2",
+            _ => ab.anim,
+        };
+        self.anim.play(clip, true);
         self.sound(ab.sfx_cast);
         self.sound(ab.vo);
         let dir = norm([point[0] - me.pos[0], 0.0, point[2] - me.pos[2]]);
         if flat(sub(point, me.pos)) > 0.3 {
             self.face = Some((dir, 0.8));
         }
-        let windup = spell(&self.c, slot).map(|s| s.cast_frame / 30.0).unwrap_or(0.25).min(anim::length(&self.c, ab.anim) * 0.6).max(0.05);
+        let mut windup = spell(&self.c, slot).map(|s| s.cast_frame / 30.0).unwrap_or(0.25).min(anim::length(&self.c, ab.anim) * 0.6).max(0.05);
+        if slot == 0 {
+            // stretch the swing over most of the attack period (League's clip alone looks rushed), never faster than authored;
+            // locomotion leaves `rate` alone while the one-shot is busy
+            let clip_len = anim::length(&self.c, clip);
+            self.anim.rate = (clip_len / (cd * tuning::AA_ANIM_FRACTION)).clamp(0.25, 1.0);
+            windup = (clip_len / self.anim.rate * tuning::AA_WINDUP_FRACTION).max(0.05);
+        }
         log!("CAST {} rank {rank} mana -{mana:.0} cd {cd:.1}s target {}", ab.id, target.is_some());
         if self.test && self.shot_at.is_none() {
             let delay = match slot { 2 => windup + 0.8, 4 => 3.0, _ => windup + 0.15 };
@@ -858,7 +889,7 @@ impl Game {
             self.ult = Some(Ult::Channel { t: 0.0, rank, target });
             return;
         }
-        self.pending = Some(Pending { slot, t: windup, target, point, rank });
+        self.pending = Some(Pending { slot, t: windup, target, point, rank, melee });
     }
 
     fn find(hostiles: &[Chr], p: usize) -> Option<Chr> {
@@ -875,6 +906,14 @@ impl Game {
         match p.slot {
             0 | 1 => {
                 let Some(t) = p.target.and_then(|t| Self::find(hostiles, t)) else { return };
+                if p.melee {
+                    let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
+                    self.damage(t, ad, "AA");
+                    self.sound("sfx_aa_hit");
+                    let dir = norm(sub(me.pos, t.pos));
+                    self.fx.burst("aa_melee", "hit", add(t.pos, [0.0, t.height * 0.6, 0.0]), dir, 0.0);
+                    return;
+                }
                 let group = if p.slot == 0 { "aa_missile" } else { "q_fear" };
                 let start = add(me.pos, [0.0, 1.6, 0.0]);
                 self.next_missile += 1;

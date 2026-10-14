@@ -35,3 +35,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 
 ## Log
 - 2026-10-12: design agreed with creator (Fiddlesticks kit only, League levelling, MIT + remix).
+- 2026-10-14: guards at the start (Godrick soldiers c4311/c4351, c4070) are team_type 48 — added as hostile to er_teams. AA now slows its clip to ~75% of the attack period, swaps to Melee_Attack1/2 within 2.5 m (damage at windup, no missile). Casts with no target log the 6 nearest characters.

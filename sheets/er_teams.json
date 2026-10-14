@@ -127,6 +127,13 @@
       "name": "attacks everyone",
       "hostile": true,
       "verified": "no"
+    },
+    {
+      "id": "enemy_48",
+      "team_type": 48,
+      "name": "enemy soldier (Godrick guard, chr 4311)",
+      "hostile": true,
+      "verified": "no"
     }
   ]
 }
