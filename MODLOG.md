@@ -55,3 +55,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-14: HUD hidden while talking (er_menus action hud; ui 1 = subtitles, unverified) and 1.5 s after.
 - 2026-10-14: vanilla HP/FP/stamina bars hidden: CSFeManImp.hud_state Default -> HideAll every tick (tuning hide_er_bars). Unverified.
 - 2026-10-14: vanilla equipment HUD hidden too (frontend_values.enable_equip_hud = false each tick, tuning hide_er_equip). Unverified.
+- 2026-10-14: hud_state HideAll also hid enemy health bars (creator). Now player bars get zeroed display values (frontend_values hp/fp/stamina and maxima) instead. Unverified.

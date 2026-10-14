@@ -222,7 +222,7 @@
       "id": "hide_er_bars",
       "value": 1.0,
       "unit": "1 = on",
-      "why": "Elden Ring's own HP/FP/stamina bars are hidden (CSFeManImp.hud_state Default -> HideAll each frame); compass and equipment stay"
+      "why": "Elden Ring's own HP/FP/stamina bars get zero values in the HUD's display copy (CSFeManImp.frontend_values) each frame; hud_state HideAll was tried and also hid the enemies' health"
     },
     {
       "id": "hide_er_equip",

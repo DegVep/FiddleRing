@@ -578,12 +578,19 @@ impl Game {
         }
 
         self.watch_menus();
-        // Elden Ring's own HP / FP / stamina bars: Fiddlesticks' HUD shows his health instead
+        // Elden Ring's own HP / FP / stamina bars: Fiddlesticks' HUD shows his health instead (display copy only)
         if tuning::HIDE_ER_BARS > 0.5 {
             if let Ok(fe) = unsafe { eldenring::cs::CSFeManImp::instance_mut() } {
-                if fe.hud_state == eldenring::cs::CSFeManHudState::Default {
-                    fe.hud_state = eldenring::cs::CSFeManHudState::HideAll;
-                }
+                // (hud_state HideAll also hid the enemies' health: instead the bars get nothing to draw)
+                let v = &mut fe.frontend_values;
+                v.player_hp = 0;
+                v.max_recoverable_hp = 0;
+                v.hp_max_uncapped = 0;
+                v.hp_max_uncapped_difference = 0;
+                v.fp = 0;
+                v.fp_max = 0;
+                v.stamina = 0;
+                v.stamina_max = 0;
                 // and its equipment HUD (weapons, flasks, spells, quick items): Fiddlesticks uses none
                 if tuning::HIDE_ER_EQUIP > 0.5 {
                     fe.frontend_values.enable_equip_hud = false;
