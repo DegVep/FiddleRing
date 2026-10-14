@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--extract" | "--dump" | "--magic" | "--has" | "--bnk")) {
+    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--clips" | "--extract" | "--dump" | "--magic" | "--has" | "--bnk")) {
         if let Err(e) = dev::run(&args) {
             eprintln!("{e:#}");
             std::process::exit(1);
@@ -690,11 +690,19 @@ fn list_skins(wad: &Wad, champions: &Path, locale: &str, icons: &mut BTreeMap<St
         }
         let Ok(b) = wad.read(&skin_bin_path(n)).and_then(|d| bin::parse(&d)) else { continue };
         let Some(o) = obj(&b, &skin_obj_path(n)).map(|o| o.as_value()) else { continue };
-        if let Some(t) = o.field("iconCircle").and_then(|v| read_link(wad, v).ok()).and_then(|b| texture::read_any(&b).ok()) {
-            icons.insert(format!("skin_icon_{n}"), to_tex(t));
+        // iconCircle is the champion's for every skin; iconAvatar is the skin's own, chromas have a client picture
+        let parent = mesh_parent(&o, n);
+        let icon = (n != parent).then(|| chroma_picture(champions, n)).flatten().or_else(|| {
+            ["iconAvatar", "iconCircle"]
+                .iter()
+                .find_map(|f| o.field(f).and_then(|v| read_link(wad, v).ok()).and_then(|b| texture::read_any(&b).ok()))
+                .map(to_tex)
+        });
+        if let Some(t) = icon {
+            icons.insert(format!("skin_icon_{n}"), t);
         }
         let fallback = o.field("championSkinName").and_then(|v| v.as_str()).unwrap_or("Fiddlesticks").to_string();
-        out.push(SkinInfo { num: n, name: names.get(&n).cloned().unwrap_or(fallback), parent: mesh_parent(&o, n) });
+        out.push(SkinInfo { num: n, name: names.get(&n).cloned().unwrap_or(fallback), parent });
     }
     println!("skins: {}", out.iter().map(|s| format!("{} {}", s.num, s.name)).collect::<Vec<_>>().join(", "));
     out
@@ -741,12 +749,21 @@ fn prepare_skin(args: &[String], n: u32) -> Result<String> {
     }
     let clips = clips.context("animation graph not found")?;
     let sounds = build_skin_audio(&main_wad, locale_wad.as_ref(), &locale, &so, &out.join("audio"))?;
+    let name = client_skin_names(&champions, &locale).remove(&n).unwrap_or_default();
+    let fx = skin_fx(&main_wad, n, parent, &name);
 
-    let c = SkinCache { version: cache::CACHE_VERSION, num: n, model, clips, sounds };
+    let c = SkinCache { version: cache::CACHE_VERSION, num: n, model, clips, sounds, fx };
     let tmp = out.join(format!("skins/skin{n}.tmp"));
     std::fs::write(&tmp, cache::save_skin(&c)?)?;
     std::fs::rename(&tmp, out.join(format!("skins/skin{n}.bin")))?;
-    Ok(format!("skin {n} ready: {} vertices, {} textures, {} clips, {} sounds", c.model.vertices.len(), c.model.textures.len(), c.clips.len(), c.sounds.len()))
+    Ok(format!(
+        "skin {n} ready: {} vertices, {} textures, {} clips, {} sounds, own fx/icons: {:?}",
+        c.model.vertices.len(),
+        c.model.textures.len(),
+        c.clips.len(),
+        c.sounds.len(),
+        c.fx.keys().collect::<Vec<_>>()
+    ))
 }
 
 /// A skin's own sound banks (its SFX and, if it has one, its voice): each sheet sound is looked up under the
@@ -852,4 +869,67 @@ fn material_texture(wad: &Wad, skin: &Bin, link: &Value) -> Option<Tex> {
         }
     }
     None
+}
+
+/// A chroma's picture from the League client (champion-chroma-images/9/9NNN.png) as a BGRA texture.
+fn chroma_picture(champions: &Path, n: u32) -> Option<Tex> {
+    let dir = champions.ancestors().nth(4)?.join("Plugins/rcp-be-lol-game-data");
+    let path = format!("plugins/rcp-be-lol-game-data/global/default/v1/champion-chroma-images/9/{}.png", 9000 + n);
+    let bytes = ["default-assets.wad", "default-assets2.wad"].iter().find_map(|w| Wad::open(&dir.join(w)).ok()?.read(&path).ok())?;
+    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut r = dec.read_info().ok()?;
+    let mut buf = vec![0; r.output_buffer_size()];
+    let info = r.next_frame(&mut buf).ok()?;
+    let (w, h) = (info.width as usize, info.height as usize);
+    let ch = match info.color_type {
+        png::ColorType::Rgba => 4,
+        png::ColorType::Rgb => 3,
+        png::ColorType::GrayscaleAlpha => 2,
+        _ => 1,
+    };
+    let mut px = Vec::with_capacity(w * h * 4);
+    for i in 0..w * h {
+        let p = &buf[i * ch..i * ch + ch];
+        let (r, g, b, a) = match ch {
+            4 => (p[0], p[1], p[2], p[3]),
+            3 => (p[0], p[1], p[2], 255),
+            2 => (p[0], p[0], p[0], p[1]),
+            _ => (p[0], p[0], p[0], 255),
+        };
+        px.extend_from_slice(&[b, g, r, a]);
+    }
+    Some(Tex { format: texture::DXGI_BGRA8, width: w as u32, height: h as u32, mips: vec![px] })
+}
+
+/// What a skin changes in the effects and HUD: its own versions of the base particle textures (same name under
+/// its folder) and the ability icons in its colours.
+fn skin_fx(wad: &Wad, n: u32, parent: u32, name: &str) -> BTreeMap<String, Tex> {
+    let mut fx = BTreeMap::new();
+    for a in sheet::ASSETS.iter().filter(|a| a.id.starts_with("fx_") && a.locator.contains("/Skins/Base/")) {
+        for m in [n, parent] {
+            let folder = format!("Skin{m:02}");
+            let cand = a.locator.replace("/Skins/Base/", &format!("/Skins/{folder}/")).replace("_Base_", &format!("_{folder}_"));
+            if let Some(t) = wad.read(&cand).ok().and_then(|b| texture::read_any(&b).ok()) {
+                fx.insert(a.id.to_string(), to_tex(t));
+                break;
+            }
+        }
+    }
+    if let Some(theme) = lolread::theme::for_skin(n, parent, name) {
+        for id in ["icon_q", "icon_w", "icon_e", "icon_r"] {
+            let Some(a) = sheet::ASSETS.iter().find(|a| a.id == id) else { continue };
+            let Some(t) = wad.read(a.locator).ok().and_then(|b| texture::read_any(&b).ok()) else { continue };
+            let Some(mut px) = texture::decode_rgba(t.format, t.width, t.height, &t.mips[0]) else { continue };
+            for p in px.chunks_exact_mut(4) {
+                let c = lolread::theme::recolor([p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0], &theme);
+                let q = c.map(|v| (v * 255.0).round() as u8);
+                p[0] = q[2];
+                p[1] = q[1];
+                p[2] = q[0];
+            }
+            fx.insert(id.to_string(), Tex { format: texture::DXGI_BGRA8, width: t.width, height: t.height, mips: vec![px] });
+        }
+    }
+    fx
 }

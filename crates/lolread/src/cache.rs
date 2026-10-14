@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 6;
+pub const CACHE_VERSION: u32 = 7;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {
@@ -126,6 +126,8 @@ pub struct SkinCache {
     pub clips: Vec<Clip>,
     /// sound id (sheet) -> wav files in cache/audio; ids it lacks keep the base skin's
     pub sounds: BTreeMap<String, Vec<String>>,
+    /// league_assets id -> the skin's version (its own particle textures, ability icons in its colours)
+    pub fx: BTreeMap<String, Tex>,
 }
 
 impl Spell {

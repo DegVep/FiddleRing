@@ -139,6 +139,13 @@ pub struct Game {
     skin_job: Option<(u32, std::sync::mpsc::Receiver<bool>)>,
     skin_note: Option<(String, f32)>,
     menu_keys: [bool; 6],
+    /// the worn skin's colours for the effects
+    theme: Option<lolread::theme::Theme>,
+    /// CC immunity: poise written last frame, the poise he would really have left, last time it was hit
+    poise_written: f32,
+    real_poise: f32,
+    poise_hit_at: f32,
+    poise_clamp_logged: bool,
     audio: Option<Audio>,
     anim: Anim,
     level: u32,
@@ -296,6 +303,11 @@ impl Game {
             skin_job: None,
             skin_note: None,
             menu_keys: [false; 6],
+            theme: None,
+            poise_written: -1.0,
+            real_poise: 0.0,
+            poise_hit_at: -100.0,
+            poise_clamp_logged: false,
             c,
             audio,
             anim: Anim::new(),
@@ -509,6 +521,7 @@ impl Game {
         // hide the Tarnished under Fiddlesticks
         player.chr_ins.base_transparency = 0.0;
         player.chr_ins.opacity_keyframes_multiplier = 0.0;
+        let interrupted = self.immune_to_cc(&mut player.chr_ins.modules.super_armor);
         if !self.hidden_logged {
             self.hidden_logged = true;
             log!("player found at {:?}, hp {}, ER level {}, ap {ap}", me.pos, me.hp, ap / tuning::AP_PER_RUNE_LEVEL + 1.0);
@@ -697,6 +710,15 @@ impl Game {
 
         self.update_pending(dt, &me, &hostiles, player_level_ap);
         self.update_missiles(dt, &hostiles, player_level_ap);
+        if interrupted && self.drain.is_some() {
+            // what would have staggered him breaks the channel
+            log!("W interrupted by a hit that would have staggered him");
+            self.drain = None;
+            self.anim.play("w_end", true);
+            if let Some(a) = self.audio.as_mut() {
+                a.stop("sfx_w_");
+            }
+        }
         self.update_drain(dt, &me, player_ptr, player_level_ap);
         // Bountiful Harvest: the Tarnished drags their feet while it drains (root motion follows animation speed)
         if self.drain.is_some() || self.w_slowed {
@@ -1272,6 +1294,12 @@ impl Game {
             }
         }
 
+        if let Some(t) = &self.theme {
+            for s in scene.world.iter_mut() {
+                let c = lolread::theme::recolor([s.color[0], s.color[1], s.color[2]], t);
+                s.color = [c[0], c[1], c[2], s.color[3]];
+            }
+        }
         self.build_hud(&mut scene, &me);
         if let Some((name, at)) = &self.shot_at {
             if self.clock >= *at {
@@ -1341,6 +1369,33 @@ impl Game {
             }
             _ => 0.0,
         }
+    }
+
+    /// Keeps the Tarnished from being staggered and says whether a hit would have broken his real poise.
+    fn immune_to_cc(&mut self, sa: &mut eldenring::cs::CSChrSuperArmorModule) -> bool {
+        let max = sa.sa_durability_max.max(1.0);
+        let now = sa.sa_durability;
+        // a drop from what we wrote is a hit's poise damage; at or under his real max the game clamped our value
+        let mut broken = false;
+        if self.poise_written > 0.0 && now <= max && !self.poise_clamp_logged {
+            self.poise_clamp_logged = true;
+            log!("CC immunity: the game keeps poise at {now:.0} (max {max:.0}), our value was clamped");
+        }
+        if self.poise_written > 0.0 && now > max && now < self.poise_written - 0.01 {
+            log!("POISE hit {:.0} (real poise {:.0} of {max:.0})", self.poise_written - now, self.real_poise - (self.poise_written - now));
+            self.real_poise -= self.poise_written - now;
+            self.poise_hit_at = self.clock;
+            if self.real_poise <= 0.0 {
+                broken = true;
+                self.real_poise = max;
+            }
+        }
+        if self.clock - self.poise_hit_at > tuning::CC_POISE_RESET {
+            self.real_poise = max;
+        }
+        sa.sa_durability = tuning::CC_IMMUNE_POISE;
+        self.poise_written = tuning::CC_IMMUNE_POISE;
+        broken
     }
 
     fn attack_speed(&self) -> f32 {
@@ -1651,6 +1706,7 @@ impl Game {
             c.model = s.model;
             c.clips = s.clips;
             c.sounds.extend(s.sounds);
+            c.icons.extend(s.fx);
         }
         self.c = Arc::new(c);
         crate::gfx::set_cache(self.c.clone());
@@ -1659,6 +1715,8 @@ impl Game {
             a.set_sounds(&self.c.sounds);
         }
         self.skin = n;
+        let parent = self.base.skins.iter().find(|s| s.num == n).map(|s| s.parent).unwrap_or(n);
+        self.theme = lolread::theme::for_skin(n, parent, self.skin_name(n));
         let _ = std::fs::write(skin_choice_path(), n.to_string());
         log!("SKIN {n} worn: {} ({} vertices)", self.skin_name(n), self.c.model.vertices.len());
     }

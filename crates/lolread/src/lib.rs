@@ -7,4 +7,5 @@ pub mod math;
 pub mod mesh;
 pub mod pose;
 pub mod texture;
+pub mod theme;
 pub mod wad;

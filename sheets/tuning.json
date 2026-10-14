@@ -157,6 +157,18 @@
       "value": 1.6,
       "unit": "m",
       "why": "the arc of the jump (drawn on Fiddlesticks' model; the Tarnished's own position follows the ground)"
+    },
+    {
+      "id": "cc_immune_poise",
+      "value": 100000.0,
+      "unit": "poise",
+      "why": "Fiddlesticks shrugs off staggers (creator's request): the Tarnished's poise is refilled to this every frame"
+    },
+    {
+      "id": "cc_poise_reset",
+      "value": 3.0,
+      "unit": "s",
+      "why": "the poise he would really have (his Elden Ring maximum) refills after this long without being hit, like the game's own; when hits would have broken it while he drains, Bountiful Harvest is interrupted"
     }
   ]
 }

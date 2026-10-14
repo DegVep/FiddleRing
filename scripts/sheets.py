@@ -70,6 +70,9 @@ def preflight(release=False, verify_path=None):
         ref(f"er_actions[{r['id']}].use", r["use"], {"Fiddlesticks", "blocked", "kept"})
     for r in s["er_menus"]["rows"]:
         ref(f"er_menus[{r['id']}].action", r["action"], {"hide", "close", "keep"})
+    for r in s["skins"]["rows"]:
+        if not re.fullmatch(r"(skin:\d+|chroma:.+)", r["match"]):
+            problems.append(f"skins[{r['id']}].match: '{r['match']}' is neither skin:<n> nor chroma:<word>")
     effect_groups = {r["effect"] for r in s["effects"]["rows"]}
     for r in s["abilities"]["rows"]:
         ref(f"abilities[{r['id']}].effect", r["effect"], effect_groups)
@@ -212,6 +215,12 @@ def gen():
     out.append("pub const HIDE_ON_UI: &[usize] = &[" + ", ".join(str(r["ui_index"]) for r in s["er_menus"]["rows"] if r["action"] == "hide") + "];")
     out.append("pub const CLOSE_UI: &[usize] = &[" + ", ".join(str(r["ui_index"]) for r in s["er_menus"]["rows"] if r["action"] == "close") + "];")
     out.append("")
+
+    out.append("pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }")
+    out.append("pub const SKIN_THEMES: &[SkinTheme] = &[")
+    for r in s["skins"]["rows"]:
+        out.append(f"    SkinTheme {{ id: {rs_str(r['id'])}, matches: {rs_str(r['match'])}, hue: {float(r['hue'])}, sat: {float(r['sat'])}, val: {float(r['val'])} }},")
+    out.append("];\n")
 
     out.append("pub mod tuning {")
     for r in s["tuning"]["rows"]:

@@ -224,6 +224,37 @@ pub const ABILITY_ACTION_BITS: &[u32] = &[0, 1, 2, 3, 28];
 pub const HIDE_ON_UI: &[usize] = &[6, 37, 61];
 pub const CLOSE_UI: &[usize] = &[29, 31];
 
+pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }
+pub const SKIN_THEMES: &[SkinTheme] = &[
+    SkinTheme { id: "base", matches: "skin:0", hue: -1.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "espectral", matches: "skin:1", hue: 175.0, sat: 0.6, val: 1.05 },
+    SkinTheme { id: "union_jack", matches: "skin:2", hue: 220.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "bandido", matches: "skin:3", hue: 30.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "caracalabaza", matches: "skin:4", hue: 25.0, sat: 1.1, val: 1.0 },
+    SkinTheme { id: "pata_de_palo", matches: "skin:5", hue: 165.0, sat: 0.9, val: 1.0 },
+    SkinTheme { id: "fiesta_sorpresa", matches: "skin:6", hue: 315.0, sat: 1.1, val: 1.0 },
+    SkinTheme { id: "golosina", matches: "skin:7", hue: 345.0, sat: 0.85, val: 1.1 },
+    SkinTheme { id: "alzado", matches: "skin:8", hue: 42.0, sat: 0.75, val: 1.1 },
+    SkinTheme { id: "pretoriano", matches: "skin:9", hue: 10.0, sat: 1.15, val: 1.0 },
+    SkinTheme { id: "nemesis", matches: "skin:27", hue: 270.0, sat: 1.0, val: 1.1 },
+    SkinTheme { id: "luna_sangrienta", matches: "skin:37", hue: 352.0, sat: 1.2, val: 0.95 },
+    SkinTheme { id: "flora_fatalis", matches: "skin:46", hue: 295.0, sat: 0.9, val: 1.1 },
+    SkinTheme { id: "chroma_rubí", matches: "chroma:rubí", hue: 355.0, sat: 1.1, val: 1.0 },
+    SkinTheme { id: "chroma_obsidiana", matches: "chroma:obsidiana", hue: -1.0, sat: 0.15, val: 0.6 },
+    SkinTheme { id: "chroma_perla", matches: "chroma:perla", hue: -1.0, sat: 0.12, val: 1.3 },
+    SkinTheme { id: "chroma_zafiro", matches: "chroma:zafiro", hue: 220.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_citrino", matches: "chroma:citrino", hue: 50.0, sat: 1.0, val: 1.05 },
+    SkinTheme { id: "chroma_peridoto", matches: "chroma:peridoto", hue: 85.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_turquesa", matches: "chroma:turquesa", hue: 175.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_amatista", matches: "chroma:amatista", hue: 280.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_cuarzo_rosa", matches: "chroma:cuarzo rosa", hue: 335.0, sat: 0.6, val: 1.15 },
+    SkinTheme { id: "chroma_tanzanita", matches: "chroma:tanzanita", hue: 245.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_esmeralda", matches: "chroma:esmeralda", hue: 140.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_arenisca", matches: "chroma:arenisca", hue: 30.0, sat: 0.6, val: 1.0 },
+    SkinTheme { id: "chroma_vil", matches: "chroma:vil", hue: 95.0, sat: 1.2, val: 1.0 },
+    SkinTheme { id: "chroma_ojo_de_gato", matches: "chroma:ojo de gato", hue: 55.0, sat: 0.8, val: 1.05 },
+];
+
 pub mod tuning {
     /// seen in game: 0.0075 made him 1.5x the Tarnished; 0.0055 puts his ~370-unit pose at about 2 m, a head taller (m per League unit)
     pub const MODEL_SCALE: f32 = 0.0055;
@@ -275,4 +306,8 @@ pub mod tuning {
     pub const R_LEAP_DISTANCE: f32 = 7.0;
     /// the arc of the jump (drawn on Fiddlesticks' model; the Tarnished's own position follows the ground) (m)
     pub const R_LEAP_HEIGHT: f32 = 1.6;
+    /// Fiddlesticks shrugs off staggers (creator's request): the Tarnished's poise is refilled to this every frame (poise)
+    pub const CC_IMMUNE_POISE: f32 = 100000.0;
+    /// the poise he would really have (his Elden Ring maximum) refills after this long without being hit, like the game's own; when hits would have broken it while he drains, Bountiful Harvest is interrupted (s)
+    pub const CC_POISE_RESET: f32 = 3.0;
 }

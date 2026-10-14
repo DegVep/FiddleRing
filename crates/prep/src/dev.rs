@@ -11,61 +11,10 @@ pub fn run(args: &[String]) -> Result<()> {
         std::fs::create_dir_all(&args[3])?;
         for (k, t) in c.icons.iter() {
             let (w, h) = (t.width as usize, t.height as usize);
-            let src = &t.mips[0];
-            let mut px = vec![0u8; w * h * 4];
-            match t.format {
-                87 => {
-                    for i in 0..w * h {
-                        px[i * 4..i * 4 + 4].copy_from_slice(&[src[i * 4 + 2], src[i * 4 + 1], src[i * 4], src[i * 4 + 3]]);
-                    }
-                }
-                71 | 77 => {
-                    let bs = if t.format == 71 { 8 } else { 16 };
-                    let bw = (w + 3) / 4;
-                    for by in 0..(h + 3) / 4 {
-                        for bx in 0..bw {
-                            let b = &src[(by * bw + bx) * bs..(by * bw + bx + 1) * bs];
-                            let (ab, cb) = if bs == 16 { (Some(&b[..8]), &b[8..]) } else { (None, b) };
-                            let c0 = u16::from_le_bytes([cb[0], cb[1]]);
-                            let c1 = u16::from_le_bytes([cb[2], cb[3]]);
-                            let rgb = |c: u16| [((c >> 11) & 31) as f32 * 255.0 / 31.0, ((c >> 5) & 63) as f32 * 255.0 / 63.0, (c & 31) as f32 * 255.0 / 31.0];
-                            let (p0, p1) = (rgb(c0), rgb(c1));
-                            let mix = |a: f32| [0, 1, 2].map(|k| p0[k] + (p1[k] - p0[k]) * a);
-                            let pal = if c0 > c1 || bs == 16 { [p0, p1, mix(1.0 / 3.0), mix(2.0 / 3.0)] } else { [p0, p1, mix(0.5), [0.0; 3]] };
-                            let idx = u32::from_le_bytes([cb[4], cb[5], cb[6], cb[7]]);
-                            let alphas: [u8; 16] = match ab {
-                                Some(a) => {
-                                    let (a0, a1) = (a[0] as f32, a[1] as f32);
-                                    let bits = u64::from_le_bytes([a[2], a[3], a[4], a[5], a[6], a[7], 0, 0]);
-                                    std::array::from_fn(|i| {
-                                        let k = ((bits >> (3 * i)) & 7) as f32;
-                                        (match k as u32 {
-                                            0 => a0,
-                                            1 => a1,
-                                            _ if a0 > a1 => (a0 * (8.0 - k) + a1 * (k - 1.0)) / 7.0,
-                                            6 => 0.0,
-                                            7 => 255.0,
-                                            _ => (a0 * (6.0 - k) + a1 * (k - 1.0)) / 5.0,
-                                        }) as u8
-                                    })
-                                }
-                                None => std::array::from_fn(|i| if c0 <= c1 && (idx >> (2 * i)) & 3 == 3 { 0 } else { 255 }),
-                            };
-                            for i in 0..16 {
-                                let (x, y) = (bx * 4 + i % 4, by * 4 + i / 4);
-                                if x < w && y < h {
-                                    let c = pal[((idx >> (2 * i)) & 3) as usize];
-                                    px[(y * w + x) * 4..(y * w + x) * 4 + 4].copy_from_slice(&[c[0] as u8, c[1] as u8, c[2] as u8, alphas[i]]);
-                                }
-                            }
-                        }
-                    }
-                }
-                f => {
-                    println!("{k}: format {f} skipped");
-                    continue;
-                }
-            }
+            let Some(px) = lolread::texture::decode_rgba(t.format, t.width, t.height, &t.mips[0]) else {
+                println!("{k}: format {} skipped", t.format);
+                continue;
+            };
             let f = std::fs::File::create(format!("{}/{k}.png", args[3]))?;
             let mut enc = png::Encoder::new(std::io::BufWriter::new(f), w as u32, h as u32);
             enc.set_color(png::ColorType::Rgba);
@@ -73,6 +22,13 @@ pub fn run(args: &[String]) -> Result<()> {
             enc.write_header()?.write_image_data(&px)?;
             println!("{k}: {w}x{h} fmt {}", t.format);
         }
+        return Ok(());
+    }
+    if args.get(1).map(|s| s.as_str()) == Some("--clips") {
+        // clips of a base cache or a skin cache: id, frames, first rotation of the first track
+        let b = std::fs::read(&args[2])?;
+        let clips = match lolread::cache::load(&b) { Ok(c) => c.clips, Err(_) => lolread::cache::load_skin(&b)?.clips };
+        for k in &clips { println!("{} {} frames {} r0 {:?}", k.id, k.league_name, k.frames, k.tracks.first().and_then(|t| t.r.first())); }
         return Ok(());
     }
     if args.get(1).map(|s| s.as_str()) == Some("--show") {
