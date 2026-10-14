@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const CACHE_VERSION: u32 = 12;
+pub const CACHE_VERSION: u32 = 13;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Joint {
@@ -118,7 +118,7 @@ pub struct ItemInfo {
     pub name: String,
     /// stat lines as the client words them ("80 de poder de habilidad")
     pub stat_lines: Vec<String>,
-    /// its passive / active, plain text
+    /// its passive / active, plain text; lines starting with § are their names
     pub text: String,
     pub ap: f32,
     pub haste: f32,

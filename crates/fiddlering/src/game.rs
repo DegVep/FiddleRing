@@ -164,6 +164,8 @@ pub struct Game {
     bars_clear_at: f32,
     /// item burns: (character, until, share of max HP per second, carried damage)
     burns: Vec<(usize, f32, f32, f32)>,
+    /// enemies slowed by an item, until when (frost effect)
+    frosted: HashMap<usize, f32>,
     /// the model's yaw, easing towards where he faces
     model_yaw: f32,
     /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
@@ -378,6 +380,7 @@ impl Game {
             banner_id: 0,
             bars_clear_at: 0.0,
             burns: vec![],
+            frosted: HashMap::new(),
             model_yaw: 0.0,
             vfx: Vfx::new(),
             vfx_live: HashMap::new(),
@@ -580,6 +583,10 @@ impl Game {
             let slow = self.item_effect("slow");
             if slow > 0.0 {
                 self.apply_cc(ch.ptr, 1.0, false, false, slow);
+                self.frosted.insert(ch.ptr, self.clock + 1.0);
+            }
+            if what != "W" && self.item_effect("dmg_mult") + self.item_effect("low_hp_mult") > 0.0 {
+                self.fx.burst("items", "amp", add(ch.pos, [0.0, ch.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
             }
         }
         let c = chr_mut(ch.ptr);
@@ -884,6 +891,9 @@ impl Game {
         self.hostile_ptrs = hostiles.iter().map(|h| h.ptr).collect();
         self.track_bosses(wcm);
         self.update_burns(dt);
+        if self.item_effect("ap_mult") > 0.0 {
+            self.fx.stream("items", "aura", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        }
         self.snap_pos = me.pos;
         let locked_ptr = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize).filter(|p| alive.contains(p));
 
@@ -2055,19 +2065,19 @@ impl Game {
                         _ => format!("{pen:.0}"),
                     };
                     let rows = [
-                        ("Daño de ataque", format!("{ad:.0}"), [0.95, 0.62, 0.30, 1.0]),
-                        ("Poder de habilidad", format!("{:.0}", self.ap_total), [0.62, 0.55, 0.98, 1.0]),
-                        ("Vel. de ataque", format!("{:.2}", self.attack_speed()), [0.95, 0.85, 0.40, 1.0]),
-                        ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), [0.55, 0.85, 0.95, 1.0]),
-                        ("Pen. mágica", pen_txt, [0.80, 0.45, 0.95, 1.0]),
-                        ("Alcance", format!("{:.0}", self.stat("attack_range")), [0.75, 0.75, 0.70, 1.0]),
+                        ("Daño de ataque", format!("{ad:.0}"), StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0]),
+                        ("Poder de habilidad", format!("{:.0}", self.ap_total), StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0]),
+                        ("Vel. de ataque", format!("{:.2}", self.attack_speed()), StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
+                        ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
+                        ("Pen. mágica", pen_txt, StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
+                        ("Alcance", format!("{:.0}", self.stat("attack_range")), StatIcon::Tex("stat_adaptive"), [0.85, 0.85, 0.80, 1.0]),
                     ];
                     let rh = h / rows.len() as f32;
-                    for (i, (k, v, col)) in rows.iter().enumerate() {
+                    for (i, (k, v, ic, col)) in rows.iter().enumerate() {
                         let ry = y + rh * i as f32 + (rh - 13.0) * 0.5;
-                        out.push(rect(x + 6.0, ry + 4.0, 5.0, 5.0, *col, "white"));
-                        label(out, k, x + 15.0 + font::width(k, 13.0) * 0.5, ry, 13.0, [0.78, 0.75, 0.68, 1.0]);
-                        label(out, v, x + w - 6.0 - font::width(v, 13.0) * 0.5, ry, 13.0, white);
+                        stat_icon(out, *ic, x + 5.0, ry - 1.0, 14.0, *col);
+                        label(out, k, x + 24.0 + font::width(k, 13.0) * 0.5, ry, 13.0, [0.80, 0.77, 0.70, 1.0]);
+                        label(out, v, x + w - 6.0 - font::width(v, 13.0) * 0.5, ry, 13.0, *col);
                     }
                 }
                 "levelup" => {
@@ -2533,6 +2543,18 @@ impl Game {
             }
         }
         self.burns.retain(|b| b.1 > clock && alive.contains(&b.0));
+        // what the items look like on the enemies: flames on the burning, frost on the slowed
+        let burning: Vec<usize> = self.burns.iter().map(|b| b.0).collect();
+        for p in burning {
+            let ch = read_chr(chr_mut(p));
+            self.fx.stream("items", "burn", p, add(ch.pos, [0.0, ch.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+        }
+        self.frosted.retain(|p, until| *until > clock && alive.contains(p));
+        let frosted: Vec<usize> = self.frosted.keys().copied().collect();
+        for p in frosted {
+            let ch = read_chr(chr_mut(p));
+            self.fx.stream("items", "frost", p, add(ch.pos, [0.0, ch.height * 0.5, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+        }
         for (p, dmg) in hits {
             let ch = read_chr(chr_mut(p));
             self.damage(ch, dmg / tuning::DAMAGE_SCALE.max(0.001), "BURN");
@@ -2581,13 +2603,37 @@ impl Game {
             }
             ty += 4.0;
             for s in &info.stat_lines {
-                left(out, s, x + 14.0, ty, 15.0, white);
-                ty += 19.0;
+                // League's stat icon, the number in the stat's colour, then its name
+                let (icon_kind, col) = stat_style(s);
+                stat_icon(out, icon_kind, x + 14.0, ty - 1.0, 17.0, col);
+                let (num, rest) = s.split_once(' ').unwrap_or((s.as_str(), ""));
+                left(out, num, x + 37.0, ty, 15.0, col);
+                left(out, rest, x + 41.0 + font::width(num, 15.0), ty, 15.0, white);
+                ty += 21.0;
             }
             ty += 6.0;
-            for line in wrap(&info.text, w - 28.0, 13.0).into_iter().take(((y + h - ty - 10.0) / 16.0).max(0.0) as usize) {
-                left(out, &line, x + 14.0, ty, 13.0, grey);
-                ty += 16.0;
+            out.push(rect(x + 14.0, ty - 3.0, w - 28.0, 1.0, [gold[0], gold[1], gold[2], 0.35], "white"));
+            ty += 4.0;
+            let max_lines = ((y + h - ty - 10.0) / 16.0).max(0.0) as usize;
+            for line in wrap_titled(&info.text, w - 28.0, 13.0).into_iter().take(max_lines) {
+                match line.strip_prefix('§') {
+                    // a passive or active: its name in gold
+                    Some(title) => {
+                        ty += 3.0;
+                        left(out, title, x + 14.0, ty, 14.0, [0.98, 0.80, 0.42, 1.0]);
+                        ty += 17.0;
+                    }
+                    None => {
+                        // numbers stand out
+                        let mut wx = x + 14.0;
+                        for word in line.split(' ') {
+                            let hot = word.chars().any(|c| c.is_ascii_digit());
+                            left(out, word, wx, ty, 13.0, if hot { [1.0, 0.86, 0.58, 1.0] } else { grey });
+                            wx += font::width(word, 13.0) + font::width(" ", 13.0);
+                        }
+                        ty += 16.0;
+                    }
+                }
             }
         };
         if let Some((pick, sel)) = self.offer {
@@ -2619,4 +2665,69 @@ impl Game {
             label(out, "Izquierda/Derecha: ver  ·  F3: cerrar", 960.0, 752.0, 16.0, grey);
         }
     }
+}
+
+/// How a stat line looks: League's stat icon (a texture, or a symbol glyph for AP / AD / mana) and its colour.
+#[derive(Clone, Copy)]
+enum StatIcon {
+    Tex(&'static str),
+    Glyph(&'static str),
+    None,
+}
+
+fn stat_style(line: &str) -> (StatIcon, [f32; 4]) {
+    let l = line.to_lowercase();
+    let has = |k: &str| l.contains(k);
+    if has("poder de habilidad") {
+        (StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0])
+    } else if has("daño de ataque") {
+        (StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0])
+    } else if has("velocidad de habilidad") {
+        (StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0])
+    } else if has("velocidad de ataque") {
+        (StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0])
+    } else if has("velocidad de movimiento") {
+        (StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0])
+    } else if has("penetración mágica") {
+        (StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0])
+    } else if has("resistencia mágica") {
+        (StatIcon::Tex("stat_mr"), [0.62, 0.72, 1.0, 1.0])
+    } else if has("armadura") {
+        (StatIcon::Tex("stat_armor"), [0.98, 0.80, 0.42, 1.0])
+    } else if has("maná") {
+        (StatIcon::Glyph("◆"), [0.38, 0.62, 1.0, 1.0])
+    } else if has("vida") {
+        (StatIcon::Tex("stat_hp"), [0.48, 0.92, 0.48, 1.0])
+    } else {
+        (StatIcon::None, [0.96, 0.94, 0.90, 1.0])
+    }
+}
+
+/// A stat icon at (x, y), `size` square, in the stat's colour.
+fn stat_icon(out: &mut Vec<Sprite>, icon: StatIcon, x: f32, y: f32, size: f32, color: [f32; 4]) {
+    match icon {
+        StatIcon::Tex(t) => out.push(Sprite {
+            tex: t,
+            additive: false,
+            pos: [[x, y, 0.], [x + size, y, 0.], [x + size, y + size, 0.], [x, y + size, 0.]],
+            uv: quad_uv(),
+            color: [1.0, 1.0, 1.0, 1.0],
+        }),
+        StatIcon::Glyph(g) => {
+            out.extend(font::text(g, x + size * 0.5 + 1.0, y + 1.0, size, [0.0, 0.0, 0.0, 0.8]));
+            out.extend(font::text(g, x + size * 0.5, y, size, color));
+        }
+        StatIcon::None => out.push(Sprite {
+            tex: "white",
+            additive: false,
+            pos: [[x + size * 0.35, y + size * 0.35, 0.], [x + size * 0.65, y + size * 0.35, 0.], [x + size * 0.65, y + size * 0.65, 0.], [x + size * 0.35, y + size * 0.65, 0.]],
+            uv: quad_uv(),
+            color,
+        }),
+    }
+}
+
+/// Like `wrap`, keeping a § title line as one line (its continuation is not a title).
+fn wrap_titled(text: &str, width: f32, size: f32) -> Vec<String> {
+    text.lines().flat_map(|l| if l.starts_with('§') { vec![l.to_string()] } else { wrap(l, width, size) }).collect()
 }

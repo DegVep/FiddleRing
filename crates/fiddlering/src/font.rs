@@ -5,7 +5,9 @@ use lolread::cache::Tex;
 use windows::Win32::Graphics::Gdi::*;
 use windows::core::w;
 
-const CHARS: &str = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ÁÉÍÓÚÑáéíóúñ¿¡·";
+const CHARS: &str = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ÁÉÍÓÚÑáéíóúñ¿¡·⚔✦◆❄";
+/// the last ones are stat icons drawn with Segoe UI Symbol (AD sword, AP star, mana diamond, frost)
+const ICONS: &str = "⚔✦◆❄";
 const CELL_W: u32 = 48; // wide enough for Arial Bold's W at 44 px
 const CELL_H: u32 = 48;
 const COLS: u32 = 20;
@@ -42,9 +44,12 @@ pub fn atlas() -> Tex {
             let oldf = SelectObject(dc, font.into());
             SetBkMode(dc, TRANSPARENT);
             SetTextColor(dc, windows::Win32::Foundation::COLORREF(0x00ffffff));
+            let symbols = CreateFontW(42, 0, 0, 0, 400, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, 0, w!("Segoe UI Symbol"));
             let mut adv = vec![];
             for (i, c) in CHARS.encode_utf16().enumerate() {
                 let (col, row) = (i as u32 % COLS, i as u32 / COLS);
+                let icon = char::from_u32(c as u32).map(|ch| ICONS.contains(ch)).unwrap_or(false);
+                SelectObject(dc, if icon { symbols.into() } else { font.into() });
                 let _ = TextOutW(dc, (col * CELL_W + 4) as i32, (row * CELL_H + 2) as i32, &[c]);
                 let mut sz = windows::Win32::Foundation::SIZE::default();
                 let _ = GetTextExtentPoint32W(dc, &[c], &mut sz);
@@ -58,6 +63,7 @@ pub fn atlas() -> Tex {
                 px[i * 4..i * 4 + 4].copy_from_slice(&[255, 255, 255, a]);
             }
             SelectObject(dc, oldf);
+            let _ = DeleteObject(symbols.into());
             SelectObject(dc, old);
             let _ = DeleteObject(font.into());
             let _ = DeleteObject(bmp.into());

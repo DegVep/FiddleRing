@@ -1071,12 +1071,22 @@ fn build_items(champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>
             stat_lines.iter().find(|l| l.contains(what)).and_then(|l| l.split_whitespace().next()).and_then(|n| n.trim_end_matches('%').parse().ok()).unwrap_or(0.0)
         };
         let rest = desc.split("</stats>").nth(1).unwrap_or(&desc);
-        let text_plain = strip_tags(&rest.replace("<br>", "\n")).lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n");
+        // passive / active names that open a line become titles (marked with § for the HUD); quoted mid-sentence
+        // they stay plain words
+        let marked = title_names(rest);
+        let text_plain = strip_tags(&marked).lines().map(str::trim).filter(|l| !l.is_empty() && *l != "§").collect::<Vec<_>>().join("\n");
         let icon_path = field("iconPath").to_ascii_lowercase().replace("/lol-game-data/assets/", "plugins/rcp-be-lol-game-data/global/default/");
         if let Some(t) = wads.iter().find_map(|w| w.read(&icon_path).ok()).and_then(|b| png_tex(&b)) {
             icons.insert(format!("item_{}", row.id), t);
         }
         out.push(ItemInfo { id: row.id, name, ap: value_of("de poder de habilidad"), haste: value_of("de velocidad de habilidad"), stat_lines, text: text_plain });
+    }
+    // League's stat icons (the client's stat shard pictures) for the item cards and the stats box
+    for (key, file) in [("stat_as", "statmodsattackspeedicon"), ("stat_haste", "statmodscdrscalingicon"), ("stat_hp", "statmodshealthscalingicon"), ("stat_armor", "statmodsarmoricon"), ("stat_mr", "statmodsmagicresicon"), ("stat_ms", "statmodsmovementspeedicon"), ("stat_adaptive", "statmodsadaptiveforceicon")] {
+        let path = format!("plugins/rcp-be-lol-game-data/global/default/v1/perk-images/statmods/{file}.png");
+        if let Some(t) = wads.iter().find_map(|w| w.read(&path).ok()).and_then(|b| png_tex(&b)) {
+            icons.insert(key.to_string(), t);
+        }
     }
     println!("items: {}", out.iter().map(|i| format!("{} ({} AP, {} haste)", i.name, i.ap, i.haste)).collect::<Vec<_>>().join(", "));
     out
@@ -1094,5 +1104,36 @@ fn strip_tags(s: &str) -> String {
             _ => {}
         }
     }
+    out
+}
+
+/// Item text with each <passive>/<active> name that starts a line set apart as "§name" on its own line.
+fn title_names(desc: &str) -> String {
+    let mut out = String::new();
+    let mut rest = desc;
+    while let Some(i) = rest.find(['<']) {
+        let (before, tail) = rest.split_at(i);
+        out.push_str(before);
+        let line_start = out.trim_end_matches(' ').is_empty() || out.trim_end_matches(' ').ends_with('\n');
+        let tag = ["<passive>", "<active>"].into_iter().find(|t| tail.starts_with(t));
+        let close = tag.map(|t| t.replace('<', "</"));
+        match (tag, close.as_deref().and_then(|c| tail.find(c).map(|e| (c, e)))) {
+            (Some(t), Some((c, e))) if line_start => {
+                out.push('§');
+                out.push_str(&tail[t.len()..e]);
+                out.push('\n');
+                rest = &tail[e + c.len()..];
+            }
+            _ if tail.starts_with("<br>") => {
+                out.push('\n');
+                rest = &tail[4..];
+            }
+            _ => {
+                out.push('<');
+                rest = &tail[1..];
+            }
+        }
+    }
+    out.push_str(rest);
     out
 }
