@@ -232,6 +232,16 @@ fn ability(slot: usize) -> &'static sheet::Ability {
     &sheet::ABILITIES[sheet::ABILITIES.iter().position(|a| a.id == SLOTS[slot]).unwrap_or(0)]
 }
 
+/// CC immunity: the game's own super armor (the flag its heavy attacks set from their animations) and full poise,
+/// written before the game updates the character and again each frame, so hits never stagger him.
+fn hold_super_armor(c: &mut ChrIns) {
+    c.modules.action_flag.action_modifiers_flags.set_super_armor(true);
+    let sa = &mut c.modules.super_armor;
+    if sa.sa_durability < sa.sa_durability_max {
+        sa.sa_durability = sa.sa_durability_max;
+    }
+}
+
 fn key_down(vk: i32) -> bool {
     unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
 }
@@ -474,6 +484,7 @@ impl Game {
         unsafe {
             if let Ok(w) = WorldChrMan::instance_mut() {
                 if let Some(p) = w.main_player.as_deref_mut() {
+                    hold_super_armor(&mut p.chr_ins);
                     let ar: &mut eldenring::cs::CSChrActionRequestModule = &mut p.chr_ins.modules.action_request;
                     ABILITY_ACTIONS.fetch_or((ar.action_requests.0 | ar.new_action_presses.0) & ABILITY_BITS, std::sync::atomic::Ordering::Relaxed);
                     for a in [
@@ -496,6 +507,7 @@ impl Game {
         unsafe {
             if let Ok(w) = WorldChrMan::instance_mut() {
                 if let Some(p) = w.main_player.as_deref_mut() {
+                    hold_super_armor(&mut p.chr_ins);
                     let ar = &mut p.chr_ins.modules.action_request;
                     ar.disabled_action_inputs.0 |= BLOCKED;
                     ar.disabled_action_inputs.0 &= !ABILITY_BITS;
@@ -538,6 +550,7 @@ impl Game {
         player.chr_ins.base_transparency = 0.0;
         player.chr_ins.opacity_keyframes_multiplier = 0.0;
         let interrupted = self.immune_to_cc(&mut player.chr_ins.modules.super_armor);
+        hold_super_armor(&mut player.chr_ins);
         if !self.hidden_logged {
             self.hidden_logged = true;
             log!("player found at {:?}, hp {}, ER level {}, ap {ap}", me.pos, me.hp, ap / tuning::AP_PER_RUNE_LEVEL + 1.0);
