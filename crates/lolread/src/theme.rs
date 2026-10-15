@@ -16,7 +16,7 @@ pub fn for_skin(num: u32, parent: u32, name: &str) -> Option<Theme> {
     let row = sheet::SKIN_THEMES
         .iter()
         .filter(|_| num != parent)
-        .find(|t| t.matches.strip_prefix("chroma:").map(|k| lower.contains(k)).unwrap_or(false))
+        .find(|t| t.matches.strip_prefix("chroma:").map(|k| k.split('|').any(|w| lower.contains(w))).unwrap_or(false))
         .or_else(|| sheet::SKIN_THEMES.iter().find(|t| t.matches == format!("skin:{parent}")))?;
     let t = Theme { hue: row.hue, sat: row.sat, val: row.val };
     (t.hue >= 0.0 || t.sat != 1.0 || t.val != 1.0).then_some(t)

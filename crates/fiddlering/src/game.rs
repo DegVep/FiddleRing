@@ -999,7 +999,7 @@ impl Game {
         let me = read_chr(&player.chr_ins);
         let rune_ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
         let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap * self.item_mult(i.id)).sum();
-        let ap_from_hp = self.item_stat("de vida") * self.item_effect("ap_from_hp");
+        let ap_from_hp = self.item_stat("hp") * self.item_effect("ap_from_hp");
         let blackfire = self.item_effect("burn_ap") * self.burns.len() as f32;
         let ap = (rune_ap + item_ap + ap_from_hp) * (1.0 + self.item_effect("ap_mult") + blackfire);
         self.ap_total = ap;
@@ -1403,7 +1403,7 @@ impl Game {
         let on = fiddle_on();
         let avatar = if self.skin != 0 && self.c.icons.contains_key(skin_icon(self.skin)) { skin_icon(self.skin) } else { "icon_portrait" };
         // the tag: a key cap and what it switches to
-        let (label, x, y) = if on { ("Sinluz", 661.0, 908.0) } else { ("Fiddlesticks", 1690.0, 24.0) };
+        let (label, x, y) = if on { (self.tr("Sinluz", "Tarnished"), 661.0, 908.0) } else { ("Fiddlesticks", 1690.0, 24.0) };
         let size = 14.0;
         let w = 40.0 + font::width(label, size) + if on { 0.0 } else { 30.0 };
         out.push(rect(x - 1.0, y - 1.0, w + 2.0, 26.0, [gold[0], gold[1], gold[2], 0.7], "white"));
@@ -1421,8 +1421,8 @@ impl Game {
         let left = self.mode_note_until - self.clock;
         if left > 0.0 {
             let a = left.min(1.0);
-            let msg = if on { "Ahora juegas como Fiddlesticks" } else { "Ahora juegas como el Sinluz" };
-            let sub = if on { "F4: volver al Sinluz" } else { "F4: volver a Fiddlesticks" };
+            let msg = if on { self.tr("Ahora juegas como Fiddlesticks", "Now playing as Fiddlesticks") } else { self.tr("Ahora juegas como el Sinluz", "Now playing as the Tarnished") };
+            let sub = if on { self.tr("F4: volver al Sinluz", "F4: back to the Tarnished") } else { self.tr("F4: volver a Fiddlesticks", "F4: back to Fiddlesticks") };
             let tw = font::title_width(msg, 34.0).max(360.0) + 120.0;
             let (bx, by) = (960.0 - tw * 0.5, 180.0);
             out.push(rect(bx, by, tw, 92.0, [0.0, 0.0, 0.0, 0.6 * a], "white"));
@@ -2291,12 +2291,12 @@ impl Game {
     /// The ability being channelled and how far along it is, for the cast bar.
     fn channel(&self) -> Option<(&'static str, f32)> {
         if let Some(d) = &self.drain {
-            return Some(("Cosecha abundante", d.t / val(&self.c, 2, "DrainDuration", d.rank).max(0.01)));
+            return Some((self.tr("Cosecha abundante", "Bountiful Harvest"), d.t / val(&self.c, 2, "DrainDuration", d.rank).max(0.01)));
         }
         match self.ult {
-            Some(Ult::Channel { t, rank, .. }) => Some(("Tormenta de cuervos", t / val(&self.c, 4, "ChannelTime", rank).max(0.01))),
-            Some(Ult::Storm { t, rank, .. }) => Some(("Tormenta de cuervos", 1.0 - t / val(&self.c, 4, "Duration", rank).max(0.01))),
-            Some(Ult::Leap { .. }) => Some(("Tormenta de cuervos", 1.0)),
+            Some(Ult::Channel { t, rank, .. }) => Some((self.tr("Tormenta de cuervos", "Crowstorm"), t / val(&self.c, 4, "ChannelTime", rank).max(0.01))),
+            Some(Ult::Storm { t, rank, .. }) => Some((self.tr("Tormenta de cuervos", "Crowstorm"), 1.0 - t / val(&self.c, 4, "Duration", rank).max(0.01))),
+            Some(Ult::Leap { .. }) => Some((self.tr("Tormenta de cuervos", "Crowstorm"), 1.0)),
             None => None,
         }
     }
@@ -2435,13 +2435,13 @@ impl Game {
                         _ => format!("{pen:.0}"),
                     };
                     let rows = [
-                        ("Daño de ataque", format!("{ad:.0}"), StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0]),
-                        ("Poder de habilidad", format!("{:.0}", self.ap_total), StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0]),
-                        ("Vel. de ataque", format!("{:.2}", self.attack_speed()), StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
-                        ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
-                        ("Pen. mágica", pen_txt, StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
+                        (self.tr("Daño de ataque", "Attack Damage"), format!("{ad:.0}"), StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0]),
+                        (self.tr("Poder de habilidad", "Ability Power"), format!("{:.0}", self.ap_total), StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0]),
+                        (self.tr("Vel. de ataque", "Attack Speed"), format!("{:.2}", self.attack_speed()), StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
+                        (self.tr("Vel. de habilidad", "Ability Haste"), format!("{:.0}", haste.max(0.0)), StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
+                        (self.tr("Pen. mágica", "Magic Pen."), pen_txt, StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
                         // League units: his base, with Cosmic Drive / Spelldance and the W slow as he moves now
-                        ("Vel. de movimiento", format!("{:.0}", self.stat("move_speed") * self.move_mult() * if self.drain.is_some() { tuning::W_SELF_SLOW } else { 1.0 }), StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
+                        (self.tr("Vel. de movimiento", "Move Speed"), format!("{:.0}", self.stat("move_speed") * self.move_mult() * if self.drain.is_some() { tuning::W_SELF_SLOW } else { 1.0 }), StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
                     ];
                     let rh = h / rows.len() as f32;
                     for (i, (k, v, ic, col)) in rows.iter().enumerate() {
@@ -2521,7 +2521,7 @@ impl Game {
                     self.skin_job = None;
                     match std::fs::read(skin_cache_path(n)).ok().and_then(|b| lolread::cache::load_skin(&b).ok()).filter(|_| ok) {
                         Some(sc) => self.apply_skin(Some(sc)),
-                        None => self.skin_note = Some(("No se pudo preparar esa skin (mira fiddlering.log)".into(), self.clock + 4.0)),
+                        None => self.skin_note = Some((self.tr("No se pudo preparar esa skin (mira fiddlering.log)", "Could not prepare that skin (see fiddlering.log)").into(), self.clock + 4.0)),
                     }
                 }
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => self.skin_job = None,
@@ -2670,7 +2670,7 @@ impl Game {
         let (px, py, pw, ph) = (460.0, 170.0, 1000.0, 700.0);
         frame(out, px, py, pw, ph, gold);
         gradient(out, px, py, pw, ph, [0.07, 0.12, 0.14, 0.97], [0.01, 0.03, 0.04, 0.98]);
-        label(out, "SKINS DE FIDDLESTICKS", 960.0, py + 18.0, 30.0, gold);
+        label(out, self.tr("SKINS DE FIDDLESTICKS", "FIDDLESTICKS SKINS"), 960.0, py + 18.0, 30.0, gold);
         out.push(rect(px + 40.0, py + 60.0, pw - 80.0, 1.0, [gold[0], gold[1], gold[2], 0.5], "white"));
 
         // the list of skins
@@ -2699,14 +2699,14 @@ impl Game {
         icon(out, pick, cx - 130.0, py + 90.0, 260.0, 1.0);
         label(out, self.skin_name(pick), cx, py + 372.0, 24.0, white);
         let status = if self.skin_job.as_ref().map(|j| j.0) == Some(pick) {
-            ("Preparando la skin desde tu League...".to_string(), [0.95, 0.82, 0.35, 1.0])
+            (self.tr("Preparando la skin desde tu League...", "Preparing the skin from your League...").to_string(), [0.95, 0.82, 0.35, 1.0])
         } else if let Some((msg, until)) = self.skin_note.as_ref().filter(|n| n.1 > self.clock) {
             let _ = until;
             (msg.clone(), [0.95, 0.40, 0.35, 1.0])
         } else if pick == self.skin {
-            ("Equipada".to_string(), [0.55, 0.85, 0.45, 1.0])
+            (self.tr("Equipada", "Equipped").to_string(), [0.55, 0.85, 0.45, 1.0])
         } else {
-            ("Enter para equipar".to_string(), grey)
+            (self.tr("Enter para equipar", "Enter to equip").to_string(), grey)
         };
         label(out, &status.0, cx, py + 408.0, 16.0, status.1);
 
@@ -2714,7 +2714,7 @@ impl Game {
         let parent = rows.get(row).copied().unwrap_or(0);
         let chromas = self.chromas(parent);
         if !chromas.is_empty() {
-            label(out, "Cromas", cx, py + 452.0, 17.0, gold);
+            label(out, self.tr("Cromas", "Chromas"), cx, py + 452.0, 17.0, gold);
             let all: Vec<u32> = std::iter::once(parent).chain(chromas.iter().copied()).collect();
             let step = (500.0 / all.len() as f32).min(62.0);
             let size = step - 10.0;
@@ -2734,7 +2734,7 @@ impl Game {
             }
         }
 
-        label(out, "Arriba/Abajo: skin  ·  Izquierda/Derecha: croma  ·  Enter: equipar  ·  F2: cerrar", 960.0, py + ph - 40.0, 16.0, grey);
+        label(out, self.tr("Arriba/Abajo: skin  ·  Izquierda/Derecha: croma  ·  Enter: equipar  ·  F2: cerrar", "Up/Down: skin  ·  Left/Right: chroma  ·  Enter: equip  ·  F2: close"), 960.0, py + ph - 40.0, 16.0, grey);
     }
 }
 
@@ -2769,6 +2769,16 @@ fn item_icon(id: u32) -> &'static str {
 
 // League items: a boss dies -> pick one of three; their stats and passives feed the kit; F3 lists them.
 impl Game {
+    /// The HUD speaks the League client's language: Spanish for a Spanish client, English for the rest (names of
+    /// skins and items come from the client itself).
+    fn spanish(&self) -> bool {
+        self.c.locale.to_ascii_lowercase().starts_with("es")
+    }
+
+    fn tr(&self, es: &'static str, en: &'static str) -> &'static str {
+        if self.spanish() { es } else { en }
+    }
+
     fn item_info(&self, id: u32) -> Option<&lolread::cache::ItemInfo> {
         self.c.items.iter().find(|i| i.id == id)
     }
@@ -2975,8 +2985,8 @@ impl Game {
     /// Magic penetration from his items' stat lines: (flat, percent).
     fn magic_pen(&self) -> (f32, f32) {
         let (mut pen, mut pen_pct) = (0.0f32, 0.0f32);
-        let lines = self.items.iter().filter_map(|&i| self.item_info(i)).flat_map(|i| i.stat_lines.iter().map(move |l| (i.id, l)));
-        for (id, line) in lines.filter(|(_, l)| l.contains("penetración mágica")) {
+        let lines = self.items.iter().filter_map(|&i| self.item_info(i)).flat_map(|i| i.stat_lines.iter().enumerate().map(move |(k, l)| (i.id, k, l)));
+        for (id, _, line) in lines.filter(|(id, k, _)| stat_kind(*id, *k) == "pen") {
             let n = line.split_whitespace().next().unwrap_or("0");
             let v: f32 = n.trim_end_matches('%').parse::<f32>().unwrap_or(0.0) * self.item_mult(id);
             if n.ends_with('%') { pen_pct += v } else { pen += v }
@@ -3018,14 +3028,14 @@ impl Game {
         sheet::ITEMS.iter().find(|r| r.id == id && r.effect == effect).map(|r| r.value).unwrap_or(0.0)
     }
 
-    /// Sum of the owned items' stat lines ending in `name` ("de vida", "de armadura"...); a % line counts as a share.
+    /// Sum of the owned items' stat lines of a kind (item_stats sheet: hp, armor, ms...); a % line counts as a share.
     fn item_stat(&self, name: &str) -> f32 {
         self.items
             .iter()
             .filter_map(|&i| self.item_info(i))
-            .flat_map(|i| i.stat_lines.iter().map(move |l| (i.id, l)))
-            .filter(|(_, l)| l.ends_with(name))
-            .filter_map(|(id, l)| {
+            .flat_map(|i| i.stat_lines.iter().enumerate().map(move |(k, l)| (i.id, k, l)))
+            .filter(|(id, k, _)| stat_kind(*id, *k) == name)
+            .filter_map(|(id, _, l)| {
                 let n = l.split_whitespace().next()?;
                 let v: f32 = n.trim_end_matches('%').parse::<f32>().ok()? * self.item_mult(id);
                 Some(if n.ends_with('%') { v / 100.0 } else { v })
@@ -3035,7 +3045,7 @@ impl Game {
 
     fn move_mult(&self) -> f32 {
         let dance = if self.clock < self.spelldance_until { self.item_effect("spelldance_ms") } else { 0.0 };
-        1.0 + self.item_stat("de velocidad de movimiento") + dance
+        1.0 + self.item_stat("ms") + dance
     }
 
     /// The items' health on top of his Elden Ring max HP, armor taking a share off the damage he takes (League's
@@ -3046,13 +3056,13 @@ impl Game {
         if d.max_hp != self.hp_written || self.hp_written == 0 {
             self.hp_base = d.max_hp;
         }
-        let bonus = self.item_stat("de vida").round() as i32;
+        let bonus = self.item_stat("hp").round() as i32;
         let max = self.hp_base + bonus;
         if d.max_hp != max {
             d.max_hp = max;
         }
         self.hp_written = max;
-        let armor = self.item_stat("de armadura");
+        let armor = self.item_stat("armor");
         if armor > 0.0 && d.hp > 0 && d.hp < self.last_hp {
             let refund = (self.last_hp - d.hp) as f32 * (1.0 - 100.0 / (100.0 + armor));
             d.hp = (d.hp + refund.round() as i32).min(d.max_hp);
@@ -3201,7 +3211,7 @@ impl Game {
                     // locked: the champion level that opens it
                     let need = tuning::ITEM_SLOT_FIRST_LEVEL + i as f32 * tuning::ITEM_SLOT_LEVEL_STEP;
                     out.push(rect(x, y, 32.0, 32.0, [0.0, 0.0, 0.0, 0.6], "white"));
-                    label(out, &format!("Nv{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
+                    label(out, &format!("{}{need:.0}", self.tr("Nv", "Lv")), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
                 }
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
@@ -3241,9 +3251,9 @@ impl Game {
                 out.push(rect(x + 4.0, y + 4.0, 14.0, 14.0, [0.08, 0.07, 0.05, 1.0], "white"));
                 label(out, "T", x + 11.0, y + 4.5, 13.0, if ready { [1.0, 0.86, 0.50, 1.0] } else { grey });
                 let (txt, col) = if active {
-                    ("ESTASIS".to_string(), [1.0, 0.90, 0.55, 1.0])
+                    (self.tr("ESTASIS", "STASIS").to_string(), [1.0, 0.90, 0.55, 1.0])
                 } else if ready {
-                    ("ESTASIS".to_string(), gold)
+                    (self.tr("ESTASIS", "STASIS").to_string(), gold)
                 } else {
                     (format!("{:.0} s", left_s.ceil()), grey)
                 };
@@ -3263,13 +3273,13 @@ impl Game {
             }
             let ups = self.item_ups.get(&id).copied().unwrap_or(0);
             if ups > 0 {
-                label(out, &format!("Mejorado +{ups}: +{:.0}% a sus estadísticas", ups as f32 * tuning::ITEM_UPGRADE_STEP * 100.0), x + w * 0.5, ty, 13.0, [1.0, 0.86, 0.50, 1.0]);
+                label(out, &format!("{} +{ups}: +{:.0}% {}", self.tr("Mejorado", "Upgraded"), ups as f32 * tuning::ITEM_UPGRADE_STEP * 100.0, self.tr("a sus estadísticas", "to its stats")), x + w * 0.5, ty, 13.0, [1.0, 0.86, 0.50, 1.0]);
                 ty += 18.0;
             }
             ty += 4.0;
-            for s in &info.stat_lines {
+            for (k, s) in info.stat_lines.iter().enumerate() {
                 // League's stat icon, the number in the stat's colour, then its name
-                let (icon_kind, col) = stat_style(s);
+                let (icon_kind, col) = stat_style(stat_kind(id, k));
                 stat_icon(out, icon_kind, x + 14.0, ty - 1.0, 17.0, col);
                 let (num, rest) = s.split_once(' ').unwrap_or((s.as_str(), ""));
                 left(out, num, x + 37.0, ty, 15.0, col);
@@ -3303,8 +3313,8 @@ impl Game {
         };
         if let Some(sel) = self.upgrade_open {
             out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.55], "white"));
-            label(out, "JEFE DERROTADO: MEJORA UN OBJETO", 960.0, 175.0, 30.0, gold);
-            label(out, &format!("+{:.0}% a todas sus estadísticas (máximo +{:.0})", tuning::ITEM_UPGRADE_STEP * 100.0, tuning::ITEM_UPGRADE_MAX), 960.0, 215.0, 16.0, grey);
+            label(out, self.tr("JEFE DERROTADO: MEJORA UN OBJETO", "BOSS FELLED: UPGRADE AN ITEM"), 960.0, 175.0, 30.0, gold);
+            label(out, &if self.spanish() { format!("+{:.0}% a todas sus estadísticas (máximo +{:.0})", tuning::ITEM_UPGRADE_STEP * 100.0, tuning::ITEM_UPGRADE_MAX) } else { format!("+{:.0}% to all its stats (up to +{:.0})", tuning::ITEM_UPGRADE_STEP * 100.0, tuning::ITEM_UPGRADE_MAX) }, 960.0, 215.0, 16.0, grey);
             for i in 0..self.items.len() {
                 let id = self.items[i];
                 let x = 960.0 - self.items.len() as f32 * 38.0 + i as f32 * 76.0 + 6.0;
@@ -3314,7 +3324,7 @@ impl Game {
                 icon(out, id, x, 250.0, 64.0);
                 if maxed {
                     out.push(rect(x, 250.0, 64.0, 64.0, [0.0, 0.0, 0.0, 0.6], "white"));
-                    label(out, "MÁX", x + 32.0, 274.0, 14.0, grey);
+                    label(out, self.tr("MÁX", "MAX"), x + 32.0, 274.0, 14.0, grey);
                 } else if ups > 0 {
                     label(out, &format!("+{ups}"), x + 32.0, 318.0, 14.0, [1.0, 0.86, 0.50, 1.0]);
                 }
@@ -3322,24 +3332,24 @@ impl Game {
             if let Some(&id) = self.items.get(sel) {
                 card(out, id, 760.0, 345.0, 400.0, 380.0, true);
                 let ups = self.item_ups.get(&id).copied().unwrap_or(0);
-                let next = if ups >= tuning::ITEM_UPGRADE_MAX as u32 { "Ya está al máximo".to_string() } else { format!("+{ups}  →  +{}", ups + 1) };
+                let next = if ups >= tuning::ITEM_UPGRADE_MAX as u32 { self.tr("Ya está al máximo", "Already at its maximum").to_string() } else { format!("+{ups}  →  +{}", ups + 1) };
                 label(out, &next, 960.0, 735.0, 18.0, [1.0, 0.86, 0.50, 1.0]);
             }
-            label(out, "Izquierda/Derecha: elegir  ·  Enter: mejorarlo", 960.0, 765.0, 17.0, grey);
+            label(out, self.tr("Izquierda/Derecha: elegir  ·  Enter: mejorarlo", "Left/Right: choose  ·  Enter: upgrade it"), 960.0, 765.0, 17.0, grey);
         } else if let Some((pick, sel)) = self.offer {
             out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.55], "white"));
-            label(out, "JEFE DERROTADO: ELIGE UN OBJETO", 960.0, 255.0, 30.0, gold);
+            label(out, self.tr("JEFE DERROTADO: ELIGE UN OBJETO", "BOSS FELLED: CHOOSE AN ITEM"), 960.0, 255.0, 30.0, gold);
             for (i, &id) in pick.iter().enumerate() {
                 card(out, id, 960.0 - 490.0 + i as f32 * 340.0, 310.0, 300.0, 380.0, i == sel);
             }
-            label(out, "Izquierda/Derecha: elegir  ·  Enter: quedarte con él", 960.0, 720.0, 17.0, grey);
+            label(out, self.tr("Izquierda/Derecha: elegir  ·  Enter: quedarte con él", "Left/Right: choose  ·  Enter: take it"), 960.0, 720.0, 17.0, grey);
         } else if let Some(sel) = self.inv_open {
             out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.45], "white"));
             frame(out, 560.0, 180.0, 800.0, 600.0, gold);
             gradient(out, 560.0, 180.0, 800.0, 600.0, [0.07, 0.12, 0.14, 0.97], [0.01, 0.03, 0.04, 0.98]);
-            label(out, "OBJETOS", 960.0, 198.0, 28.0, gold);
+            label(out, self.tr("OBJETOS", "ITEMS"), 960.0, 198.0, 28.0, gold);
             if self.items.is_empty() {
-                label(out, "Todavía no tienes objetos: derrota a un jefe para elegir uno.", 960.0, 420.0, 18.0, grey);
+                label(out, self.tr("Todavía no tienes objetos: derrota a un jefe para elegir uno.", "No items yet: defeat a boss to choose one."), 960.0, 420.0, 18.0, grey);
             }
             for i in 0..6 {
                 let x = 960.0 - 3.0 * 76.0 + i as f32 * 76.0 + 6.0;
@@ -3352,7 +3362,7 @@ impl Game {
             if let Some(&id) = self.items.get(sel) {
                 card(out, id, 760.0, 340.0, 400.0, 380.0, true);
             }
-            label(out, "Izquierda/Derecha: ver  ·  F3: cerrar", 960.0, 752.0, 16.0, grey);
+            label(out, self.tr("Izquierda/Derecha: ver  ·  F3: cerrar", "Left/Right: browse  ·  F3: close"), 960.0, 752.0, 16.0, grey);
         }
     }
 }
@@ -3365,32 +3375,25 @@ enum StatIcon {
     None,
 }
 
-fn stat_style(line: &str) -> (StatIcon, [f32; 4]) {
-    let l = line.to_lowercase();
-    let has = |k: &str| l.contains(k);
-    if has("poder de habilidad") {
-        (StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0])
-    } else if has("daño de ataque") {
-        (StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0])
-    } else if has("velocidad de habilidad") {
-        (StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0])
-    } else if has("velocidad de ataque") {
-        (StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0])
-    } else if has("velocidad de movimiento") {
-        (StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0])
-    } else if has("penetración mágica") {
-        (StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0])
-    } else if has("resistencia mágica") {
-        (StatIcon::Tex("stat_mr"), [0.62, 0.72, 1.0, 1.0])
-    } else if has("armadura") {
-        (StatIcon::Tex("stat_armor"), [0.98, 0.80, 0.42, 1.0])
-    } else if has("maná") {
-        (StatIcon::Glyph("◆"), [0.38, 0.62, 1.0, 1.0])
-    } else if has("vida") {
-        (StatIcon::Tex("stat_hp"), [0.48, 0.92, 0.48, 1.0])
-    } else {
-        (StatIcon::None, [0.96, 0.94, 0.90, 1.0])
+fn stat_style(kind: &str) -> (StatIcon, [f32; 4]) {
+    match kind {
+        "ap" => (StatIcon::Glyph("✦"), [0.72, 0.58, 1.0, 1.0]),
+        "ad" => (StatIcon::Glyph("⚔"), [1.0, 0.62, 0.30, 1.0]),
+        "haste" => (StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
+        "as" => (StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
+        "ms" => (StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
+        "pen" => (StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
+        "mr" => (StatIcon::Tex("stat_mr"), [0.62, 0.72, 1.0, 1.0]),
+        "armor" => (StatIcon::Tex("stat_armor"), [0.98, 0.80, 0.42, 1.0]),
+        "mana" => (StatIcon::Glyph("◆"), [0.38, 0.62, 1.0, 1.0]),
+        "hp" => (StatIcon::Tex("stat_hp"), [0.48, 0.92, 0.48, 1.0]),
+        _ => (StatIcon::None, [0.96, 0.94, 0.90, 1.0]),
     }
+}
+
+/// What an item's stat line is (item_stats sheet), "" if the sheet does not say.
+fn stat_kind(id: u32, line: usize) -> &'static str {
+    sheet::ITEM_STATS.iter().find(|s| s.id == id).and_then(|s| s.stats.get(line).copied()).unwrap_or("")
 }
 
 /// A stat icon at (x, y), `size` square, in the stat's colour.

@@ -1,0 +1,66 @@
+{
+  "sheet": "item_stats",
+  "doc": "What each stat line of an item is, in order (the numbers are read from the player's League client, in its language, so they follow patches; the kinds make the mod work in any language). Kinds: ap, hp, mana, haste, armor, mr, ms, pen (a % line is percent penetration / movement speed share). prep warns when a client item has a different line count.",
+  "columns": [
+    "id",
+    "stats",
+    "note"
+  ],
+  "rows": [
+    {
+      "id": 6653,
+      "stats": "ap,hp",
+      "note": "Liandry's Torment"
+    },
+    {
+      "id": 2503,
+      "stats": "ap,mana,haste",
+      "note": "Blackfire Torch"
+    },
+    {
+      "id": 3118,
+      "stats": "ap,mana,haste",
+      "note": "Malignance"
+    },
+    {
+      "id": 3089,
+      "stats": "ap",
+      "note": "Rabadon's Deathcap"
+    },
+    {
+      "id": 3135,
+      "stats": "ap,pen",
+      "note": "Void Staff"
+    },
+    {
+      "id": 4645,
+      "stats": "ap,pen",
+      "note": "Shadowflame"
+    },
+    {
+      "id": 3116,
+      "stats": "ap,hp",
+      "note": "Rylai's Crystal Scepter"
+    },
+    {
+      "id": 3157,
+      "stats": "ap,armor",
+      "note": "Zhonya's Hourglass"
+    },
+    {
+      "id": 4629,
+      "stats": "ap,hp,haste,ms",
+      "note": "Cosmic Drive"
+    },
+    {
+      "id": 3165,
+      "stats": "ap,hp,haste",
+      "note": "Morellonomicon"
+    },
+    {
+      "id": 4633,
+      "stats": "ap,hp,haste",
+      "note": "Riftmaker"
+    }
+  ]
+}

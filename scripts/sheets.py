@@ -72,6 +72,12 @@ def preflight(release=False, verify_path=None):
         ref(f"er_menus[{r['id']}].action", r["action"], {"hide", "close", "keep", "hud"})
     for r in s["items"]["rows"]:
         ref(f"items[{r['id']}].effect", r["effect"], {"burn", "burn_ap", "slow", "ap_mult", "low_hp_mult", "r_haste", "combat_dmg", "combat_dmg_max", "omnivamp", "ap_from_hp", "hatefog", "hatefog_ap", "hatefog_mr", "grievous", "spelldance_ms", "stasis", "pen_fx", "none"})
+    item_ids = {r["id"] for r in s["items"]["rows"]}
+    for r in s["item_stats"]["rows"]:
+        if r["id"] not in item_ids:
+            problems.append(f"item_stats[{r['id']}]: not in the items sheet")
+        for k in r["stats"].split(","):
+            ref(f"item_stats[{r['id']}].stats", k, {"ap", "hp", "mana", "haste", "armor", "mr", "ms", "pen"})
     for r in s["vfx_events"]["rows"]:
         if not (r["attach"] in ("caster", "target", "point", "missile", "beam", "fly_to_caster") or r["attach"].startswith("bone:")):
             problems.append(f"vfx_events[{r['id']}].attach: '{r['attach']}' unknown")
@@ -235,6 +241,15 @@ def gen():
     out.append("pub const ITEMS: &[ItemRow] = &[")
     for r in s["items"]["rows"]:
         out.append(f"    ItemRow {{ id: {int(r['id'])}, effect: {rs_str(r['effect'])}, value: {float(r['value'])} }},")
+    out.append("];")
+    out.append("")
+
+    out.append("/// What each stat line of an item is (item_stats sheet).")
+    out.append("pub struct ItemStats { pub id: u32, pub stats: &'static [&'static str] }")
+    out.append("pub const ITEM_STATS: &[ItemStats] = &[")
+    for r in s["item_stats"]["rows"]:
+        ks = ", ".join(rs_str(k) for k in r["stats"].split(","))
+        out.append(f"    ItemStats {{ id: {int(r['id'])}, stats: &[{ks}] }},")
     out.append("];")
     out.append("")
 

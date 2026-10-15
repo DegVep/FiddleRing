@@ -116,7 +116,7 @@ pub struct Cache {
 pub struct ItemInfo {
     pub id: u32,
     pub name: String,
-    /// stat lines as the client words them ("80 de poder de habilidad")
+    /// stat lines as the client words them ("80 Ability Power"); what each one is comes from the item_stats sheet
     pub stat_lines: Vec<String>,
     /// its passive / active, plain text; lines starting with § are their names
     pub text: String,

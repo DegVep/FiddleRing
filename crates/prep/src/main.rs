@@ -1075,7 +1075,9 @@ fn build_items(champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>
     ];
     let Some(text) = tries.iter().find_map(|(w, p)| Wad::open(w).ok()?.read(p).ok()).map(|b| String::from_utf8_lossy(&b).into_owned()) else { return out };
     let wads: Vec<Wad> = ["default-assets2.wad", "default-assets.wad"].iter().filter_map(|w| Wad::open(&dir.join(w)).ok()).collect();
-    for row in sheet::ITEMS {
+    let mut seen = std::collections::HashSet::new();
+    // an item has a sheet row per passive: one entry each
+    for row in sheet::ITEMS.iter().filter(|r| seen.insert(r.id)) {
         // the object {"id":<id>,"name":"...","description":"...", ... "iconPath":"..."}
         let Some(at) = text.find(&format!("{{\"id\":{},", row.id)) else { continue };
         let obj = &text[at..];
@@ -1084,8 +1086,14 @@ fn build_items(champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>
         let desc = field("description");
         let stats_part = desc.split("<stats>").nth(1).and_then(|x| x.split("</stats>").next()).unwrap_or("");
         let stat_lines: Vec<String> = stats_part.split("<br>").map(strip_tags).map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
-        let value_of = |what: &str| -> f32 {
-            stat_lines.iter().find(|l| l.contains(what)).and_then(|l| l.split_whitespace().next()).and_then(|n| n.trim_end_matches('%').parse().ok()).unwrap_or(0.0)
+        // which line is which stat comes from the item_stats sheet (the text is in the client's language)
+        let kinds: &[&str] = sheet::ITEM_STATS.iter().find(|s| s.id == row.id).map(|s| s.stats).unwrap_or(&[]);
+        if kinds.len() != stat_lines.len() {
+            println!("warning: item {} has {} stat lines in this client, the item_stats sheet lists {}", row.id, stat_lines.len(), kinds.len());
+        }
+        let value_of = |kind: &str| -> f32 {
+            let i = kinds.iter().position(|k| *k == kind);
+            i.and_then(|i| stat_lines.get(i)).and_then(|l| l.split_whitespace().next()).and_then(|n| n.trim_end_matches('%').parse().ok()).unwrap_or(0.0)
         };
         let rest = desc.split("</stats>").nth(1).unwrap_or(&desc);
         // passive / active names that open a line become titles (marked with § for the HUD); quoted mid-sentence
@@ -1096,7 +1104,7 @@ fn build_items(champions: &Path, locale: &str, icons: &mut BTreeMap<String, Tex>
         if let Some(t) = wads.iter().find_map(|w| w.read(&icon_path).ok()).and_then(|b| png_tex(&b)) {
             icons.insert(format!("item_{}", row.id), t);
         }
-        out.push(ItemInfo { id: row.id, name, ap: value_of("de poder de habilidad"), haste: value_of("de velocidad de habilidad"), stat_lines, text: text_plain });
+        out.push(ItemInfo { id: row.id, name, ap: value_of("ap"), haste: value_of("haste"), stat_lines, text: text_plain });
     }
     // League's stat icons (the client's stat shard pictures) for the item cards and the stats box
     for (key, file) in [("stat_as", "statmodsattackspeedicon"), ("stat_haste", "statmodscdrscalingicon"), ("stat_hp", "statmodshealthscalingicon"), ("stat_armor", "statmodsarmoricon"), ("stat_mr", "statmodsmagicresicon"), ("stat_ms", "statmodsmovementspeedicon"), ("stat_adaptive", "statmodsadaptiveforceicon")] {

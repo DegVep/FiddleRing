@@ -302,6 +302,22 @@ pub const ITEMS: &[ItemRow] = &[
     ItemRow { id: 4633, effect: "ap_from_hp", value: 0.02 },
 ];
 
+/// What each stat line of an item is (item_stats sheet).
+pub struct ItemStats { pub id: u32, pub stats: &'static [&'static str] }
+pub const ITEM_STATS: &[ItemStats] = &[
+    ItemStats { id: 6653, stats: &["ap", "hp"] },
+    ItemStats { id: 2503, stats: &["ap", "mana", "haste"] },
+    ItemStats { id: 3118, stats: &["ap", "mana", "haste"] },
+    ItemStats { id: 3089, stats: &["ap"] },
+    ItemStats { id: 3135, stats: &["ap", "pen"] },
+    ItemStats { id: 4645, stats: &["ap", "pen"] },
+    ItemStats { id: 3116, stats: &["ap", "hp"] },
+    ItemStats { id: 3157, stats: &["ap", "armor"] },
+    ItemStats { id: 4629, stats: &["ap", "hp", "haste", "ms"] },
+    ItemStats { id: 3165, stats: &["ap", "hp", "haste"] },
+    ItemStats { id: 4633, stats: &["ap", "hp", "haste"] },
+];
+
 pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }
 pub const SKIN_THEMES: &[SkinTheme] = &[
     SkinTheme { id: "base", matches: "skin:0", hue: -1.0, sat: 1.0, val: 1.0 },
@@ -317,20 +333,20 @@ pub const SKIN_THEMES: &[SkinTheme] = &[
     SkinTheme { id: "nemesis", matches: "skin:27", hue: 270.0, sat: 1.0, val: 1.1 },
     SkinTheme { id: "luna_sangrienta", matches: "skin:37", hue: 352.0, sat: 1.2, val: 0.95 },
     SkinTheme { id: "flora_fatalis", matches: "skin:46", hue: 295.0, sat: 0.9, val: 1.1 },
-    SkinTheme { id: "chroma_rubí", matches: "chroma:rubí", hue: 355.0, sat: 1.1, val: 1.0 },
-    SkinTheme { id: "chroma_obsidiana", matches: "chroma:obsidiana", hue: -1.0, sat: 0.15, val: 0.6 },
-    SkinTheme { id: "chroma_perla", matches: "chroma:perla", hue: -1.0, sat: 0.12, val: 1.3 },
-    SkinTheme { id: "chroma_zafiro", matches: "chroma:zafiro", hue: 220.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_citrino", matches: "chroma:citrino", hue: 50.0, sat: 1.0, val: 1.05 },
-    SkinTheme { id: "chroma_peridoto", matches: "chroma:peridoto", hue: 85.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_turquesa", matches: "chroma:turquesa", hue: 175.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_amatista", matches: "chroma:amatista", hue: 280.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_cuarzo_rosa", matches: "chroma:cuarzo rosa", hue: 335.0, sat: 0.6, val: 1.15 },
-    SkinTheme { id: "chroma_tanzanita", matches: "chroma:tanzanita", hue: 245.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_esmeralda", matches: "chroma:esmeralda", hue: 140.0, sat: 1.0, val: 1.0 },
-    SkinTheme { id: "chroma_arenisca", matches: "chroma:arenisca", hue: 30.0, sat: 0.6, val: 1.0 },
-    SkinTheme { id: "chroma_vil", matches: "chroma:vil", hue: 95.0, sat: 1.2, val: 1.0 },
-    SkinTheme { id: "chroma_ojo_de_gato", matches: "chroma:ojo de gato", hue: 55.0, sat: 0.8, val: 1.05 },
+    SkinTheme { id: "chroma_ruby", matches: "chroma:rubí|ruby", hue: 355.0, sat: 1.1, val: 1.0 },
+    SkinTheme { id: "chroma_obsidian", matches: "chroma:obsidiana|obsidian", hue: -1.0, sat: 0.15, val: 0.6 },
+    SkinTheme { id: "chroma_pearl", matches: "chroma:perla|pearl", hue: -1.0, sat: 0.12, val: 1.3 },
+    SkinTheme { id: "chroma_sapphire", matches: "chroma:zafiro|sapphire", hue: 220.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_citrine", matches: "chroma:citrino|citrine", hue: 50.0, sat: 1.0, val: 1.05 },
+    SkinTheme { id: "chroma_peridot", matches: "chroma:peridoto|peridot", hue: 85.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_turquoise", matches: "chroma:turquesa|turquoise", hue: 175.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_amethyst", matches: "chroma:amatista|amethyst", hue: 280.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_rose_quartz", matches: "chroma:cuarzo rosa|rose quartz", hue: 335.0, sat: 0.6, val: 1.15 },
+    SkinTheme { id: "chroma_tanzanite", matches: "chroma:tanzanita|tanzanite", hue: 245.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_emerald", matches: "chroma:esmeralda|emerald", hue: 140.0, sat: 1.0, val: 1.0 },
+    SkinTheme { id: "chroma_sandstone", matches: "chroma:arenisca|sandstone", hue: 30.0, sat: 0.6, val: 1.0 },
+    SkinTheme { id: "chroma_vile", matches: "chroma:vil", hue: 95.0, sat: 1.2, val: 1.0 },
+    SkinTheme { id: "chroma_catseye", matches: "chroma:ojo de gato|catseye|cat's eye", hue: 55.0, sat: 0.8, val: 1.05 },
 ];
 
 pub mod tuning {

@@ -1,6 +1,6 @@
 {
   "sheet": "items",
-  "doc": "League items Fiddlesticks builds, offered three at a time when a boss dies (max 6 owned). id = League item id: name, description, stats and icon come from the player's League client (items.json, es). Stats from the item's lines apply: ability power, ability haste, magic penetration (% then flat), health (added to his Elden Ring max HP), armor (takes 100/(100+armor) off damage taken), movement speed %; mana does not (he has none). An item can have several rows, one per passive; enemies count as champions. effect: burn (share of max HP per second for 3 s on ability hits), burn_ap (AP share per burning enemy), slow (ability hits, 1 s), ap_mult, low_hp_mult (magic damage on targets under 40% HP), r_haste (Crowstorm ability haste), combat_dmg (damage share per second in combat, up to combat_dmg_max), omnivamp (heal share of damage while combat_dmg is at its max), ap_from_hp (AP per item health), hatefog (magic damage per second for 3 s on targets of his R; hatefog_ap per AP; hatefog_mr magic resistance off), grievous (share of their healing cut for 3 s after his magic damage), spelldance_ms (movement speed share for 4 s after magic damage), stasis (Zhonya, T), pen_fx (void burst where penetration cuts through), none.",
+  "doc": "League items Fiddlesticks builds, offered three at a time when a boss dies (max 6 owned). id = League item id: name, description, stats and icon come from the player's League client (items.json, in the client's language). Stats from the item's lines apply: ability power, ability haste, magic penetration (% then flat), health (added to his Elden Ring max HP), armor (takes 100/(100+armor) off damage taken), movement speed %; mana does not (he has none). An item can have several rows, one per passive; enemies count as champions. effect: burn (share of max HP per second for 3 s on ability hits), burn_ap (AP share per burning enemy), slow (ability hits, 1 s), ap_mult, low_hp_mult (magic damage on targets under 40% HP), r_haste (Crowstorm ability haste), combat_dmg (damage share per second in combat, up to combat_dmg_max), omnivamp (heal share of damage while combat_dmg is at its max), ap_from_hp (AP per item health), hatefog (magic damage per second for 3 s on targets of his R; hatefog_ap per AP; hatefog_mr magic resistance off), grievous (share of their healing cut for 3 s after his magic damage), spelldance_ms (movement speed share for 4 s after magic damage), stasis (Zhonya, T), pen_fx (void burst where penetration cuts through), none.",
   "columns": [
     "id",
     "effect",
@@ -12,121 +12,121 @@
       "id": 6653,
       "effect": "burn",
       "value": 0.02,
-      "note": "Tormento de Liandry, Tormento: abilities burn 2% max HP per second for 3 s"
+      "note": "Liandry's Torment, Torment: abilities burn 2% max HP per second for 3 s"
     },
     {
       "id": 6653,
       "effect": "combat_dmg",
       "value": 0.02,
-      "note": "Tormento de Liandry, Sufrimiento: +2% damage per second in combat"
+      "note": "Liandry's Torment, Suffering: +2% damage per second in combat"
     },
     {
       "id": 6653,
       "effect": "combat_dmg_max",
       "value": 0.06,
-      "note": "Tormento de Liandry, Sufrimiento: up to 6%"
+      "note": "Liandry's Torment, Suffering: up to 6%"
     },
     {
       "id": 2503,
       "effect": "burn",
       "value": 0.015,
-      "note": "Antorcha de fuego negro, Llamarada maligna: abilities burn for 3 s (League gives no number; 1.5% max HP per second)"
+      "note": "Blackfire Torch, Baleful Blaze: abilities burn for 3 s (League gives no number; 1.5% max HP per second)"
     },
     {
       "id": 2503,
       "effect": "burn_ap",
       "value": 0.04,
-      "note": "Antorcha de fuego negro, Fuego negro: +4% AP per burning enemy"
+      "note": "Blackfire Torch, Blackfire: +4% AP per burning enemy"
     },
     {
       "id": 3118,
       "effect": "r_haste",
       "value": 20,
-      "note": "Malignidad, Desdén: +20 ultimate ability haste"
+      "note": "Malignance, Scorn: +20 ultimate ability haste"
     },
     {
       "id": 3118,
       "effect": "hatefog",
       "value": 60,
-      "note": "Malignidad, Niebla del odio: R hits burn the ground under them for 3 s, magic damage per second (League: 60 + 5% AP)"
+      "note": "Malignance, Hatefog: R hits burn the ground under them for 3 s, magic damage per second (League: 60 + 5% AP)"
     },
     {
       "id": 3118,
       "effect": "hatefog_ap",
       "value": 0.05,
-      "note": "Malignidad, Niebla del odio: per AP"
+      "note": "Malignance, Hatefog: per AP"
     },
     {
       "id": 3118,
       "effect": "hatefog_mr",
       "value": 10,
-      "note": "Malignidad, Niebla del odio: magic resistance taken off (League: 10)"
+      "note": "Malignance, Hatefog: magic resistance taken off (League: 10)"
     },
     {
       "id": 3089,
       "effect": "ap_mult",
       "value": 0.3,
-      "note": "Sombrero mortal de Rabadon, Obra mágica: +30% total AP"
+      "note": "Rabadon's Deathcap, Magical Opus: +30% total AP"
     },
     {
       "id": 3135,
       "effect": "pen_fx",
       "value": 1,
-      "note": "Bastón del Vacío: 40% magic penetration from its stat line (no passive); pen_fx = the void burst on his ability hits"
+      "note": "Void Staff: 40% magic penetration from its stat line (no passive); pen_fx = the void burst on his ability hits"
     },
     {
       "id": 4645,
       "effect": "low_hp_mult",
       "value": 0.2,
-      "note": "Llamasombría, Florascua: magic damage crits targets under 40% HP for +20%"
+      "note": "Shadowflame, Cinderbloom: magic damage crits targets under 40% HP for +20%"
     },
     {
       "id": 3116,
       "effect": "slow",
       "value": 0.3,
-      "note": "Cetro de cristal de Rylai, Escarcha helada: abilities slow 30% for 1 s"
+      "note": "Rylai's Crystal Scepter, Rimefrost: abilities slow 30% for 1 s"
     },
     {
       "id": 3157,
       "effect": "stasis",
       "value": 2.5,
-      "note": "Reloj de arena de Zhonya, Tiempo detenido: T = stasis while League's Zhonya sound plays (3 s, creator's request; value s if the sound is missing)"
+      "note": "Zhonya's Hourglass, Time Stop: T = stasis while League's Zhonya sound plays (3 s, creator's request; value s if the sound is missing)"
     },
     {
       "id": 4629,
       "effect": "spelldance_ms",
       "value": 0.1,
-      "note": "Impulso cósmico, Danza de hechizos: magic damage gives movement speed for 4 s (League gives no number; +10%)"
+      "note": "Cosmic Drive, Spelldance: magic damage gives movement speed for 4 s (League gives no number; +10%)"
     },
     {
       "id": 3165,
       "effect": "grievous",
       "value": 0.4,
-      "note": "Morellonomicón, Heridas graves: magic damage cuts the target's healing 40% for 3 s"
+      "note": "Morellonomicon, Grievous Wounds: magic damage cuts the target's healing 40% for 3 s"
     },
     {
       "id": 4633,
       "effect": "combat_dmg",
       "value": 0.02,
-      "note": "Creagrietas, Corrupción del Vacío: +2% damage per second in combat"
+      "note": "Riftmaker, Void Corruption: +2% damage per second in combat"
     },
     {
       "id": 4633,
       "effect": "combat_dmg_max",
       "value": 0.08,
-      "note": "Creagrietas, Corrupción del Vacío: up to 8%"
+      "note": "Riftmaker, Void Corruption: up to 8%"
     },
     {
       "id": 4633,
       "effect": "omnivamp",
       "value": 0.08,
-      "note": "Creagrietas, Corrupción del Vacío: omnivamp at full stacks (League gives no number; 8%)"
+      "note": "Riftmaker, Void Corruption: omnivamp at full stacks (League gives no number; 8%)"
     },
     {
       "id": 4633,
       "effect": "ap_from_hp",
       "value": 0.02,
-      "note": "Creagrietas, Infusión del Vacío: 2% of the items' health as AP"
+      "note": "Riftmaker, Void Infusion: 2% of the items' health as AP"
     }
   ]
 }

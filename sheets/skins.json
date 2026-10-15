@@ -1,6 +1,6 @@
 {
   "sheet": "skins",
-  "doc": "Colour theme of each skin and chroma for Fiddlesticks' effects and ability icons (the base effects are red: they are turned to `hue`). match = skin:<League skin number> (its chromas inherit it) or chroma:<word in the chroma's client name> (checked first, so a ruby chroma is red whatever its skin). hue = degrees the base red becomes (-1 = keep the hue); sat / val = multipliers. A skin's own particle textures replace the base ones when League has them under the same name (prep --skin).",
+  "doc": "Colour theme of each skin and chroma for Fiddlesticks' effects and ability icons (the base effects are red: they are turned to `hue`). match = skin:<League skin number> (its chromas inherit it) or chroma:<word in the chroma's client name>, alternatives split by | (Spanish and English client names) (checked first, so a ruby chroma is red whatever its skin). hue = degrees the base red becomes (-1 = keep the hue); sat / val = multipliers. A skin's own particle textures replace the base ones when League has them under the same name (prep --skin).",
   "columns": [
     "id",
     "match",
@@ -101,99 +101,99 @@
       "val": 1.1
     },
     {
-      "id": "chroma_rubí",
-      "match": "chroma:rubí",
+      "id": "chroma_ruby",
+      "match": "chroma:rubí|ruby",
       "hue": 355,
       "sat": 1.1,
       "val": 1.0
     },
     {
-      "id": "chroma_obsidiana",
-      "match": "chroma:obsidiana",
+      "id": "chroma_obsidian",
+      "match": "chroma:obsidiana|obsidian",
       "hue": -1,
       "sat": 0.15,
       "val": 0.6
     },
     {
-      "id": "chroma_perla",
-      "match": "chroma:perla",
+      "id": "chroma_pearl",
+      "match": "chroma:perla|pearl",
       "hue": -1,
       "sat": 0.12,
       "val": 1.3
     },
     {
-      "id": "chroma_zafiro",
-      "match": "chroma:zafiro",
+      "id": "chroma_sapphire",
+      "match": "chroma:zafiro|sapphire",
       "hue": 220,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_citrino",
-      "match": "chroma:citrino",
+      "id": "chroma_citrine",
+      "match": "chroma:citrino|citrine",
       "hue": 50,
       "sat": 1,
       "val": 1.05
     },
     {
-      "id": "chroma_peridoto",
-      "match": "chroma:peridoto",
+      "id": "chroma_peridot",
+      "match": "chroma:peridoto|peridot",
       "hue": 85,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_turquesa",
-      "match": "chroma:turquesa",
+      "id": "chroma_turquoise",
+      "match": "chroma:turquesa|turquoise",
       "hue": 175,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_amatista",
-      "match": "chroma:amatista",
+      "id": "chroma_amethyst",
+      "match": "chroma:amatista|amethyst",
       "hue": 280,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_cuarzo_rosa",
-      "match": "chroma:cuarzo rosa",
+      "id": "chroma_rose_quartz",
+      "match": "chroma:cuarzo rosa|rose quartz",
       "hue": 335,
       "sat": 0.6,
       "val": 1.15
     },
     {
-      "id": "chroma_tanzanita",
-      "match": "chroma:tanzanita",
+      "id": "chroma_tanzanite",
+      "match": "chroma:tanzanita|tanzanite",
       "hue": 245,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_esmeralda",
-      "match": "chroma:esmeralda",
+      "id": "chroma_emerald",
+      "match": "chroma:esmeralda|emerald",
       "hue": 140,
       "sat": 1,
       "val": 1
     },
     {
-      "id": "chroma_arenisca",
-      "match": "chroma:arenisca",
+      "id": "chroma_sandstone",
+      "match": "chroma:arenisca|sandstone",
       "hue": 30,
       "sat": 0.6,
       "val": 1.0
     },
     {
-      "id": "chroma_vil",
+      "id": "chroma_vile",
       "match": "chroma:vil",
       "hue": 95,
       "sat": 1.2,
       "val": 1.0
     },
     {
-      "id": "chroma_ojo_de_gato",
-      "match": "chroma:ojo de gato",
+      "id": "chroma_catseye",
+      "match": "chroma:ojo de gato|catseye|cat's eye",
       "hue": 55,
       "sat": 0.8,
       "val": 1.05
