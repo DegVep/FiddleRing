@@ -597,11 +597,16 @@ impl Game {
             }
         }
         let c = chr_mut(ch.ptr);
+        // his abilities and burns are magic damage: the enemy's magic resistance, less his penetration
+        let mr = self.enemy_mr(c, ch.ptr);
+        if matches!(what, "Q" | "W" | "E" | "R" | "BURN") {
+            amount *= if mr >= 0.0 { 100.0 / (100.0 + mr) } else { 2.0 - 100.0 / (100.0 - mr) };
+        }
         let dmg = (amount * tuning::DAMAGE_SCALE).max(1.0).round() as i32;
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
         self.damaged.insert(ch.ptr, c.modules.data.max_hp);
-        log!("HIT {what} chr={} team={} hp {hp}->{new} ({dmg})", c.character_id, c.team_type);
+        log!("HIT {what} chr={} team={} hp {hp}->{new} ({dmg}, mr after pen {mr:.0})", c.character_id, c.team_type);
         (hp - new) as f32
     }
 
@@ -2067,12 +2072,7 @@ impl Game {
                     out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.55], "white"));
                     let owned: Vec<&lolread::cache::ItemInfo> = self.items.iter().filter_map(|&i| self.item_info(i)).collect();
                     let haste: f32 = owned.iter().map(|i| i.haste).sum();
-                    let (mut pen, mut pen_pct) = (0.0f32, 0.0f32);
-                    for line in owned.iter().flat_map(|i| i.stat_lines.iter()).filter(|l| l.contains("penetración mágica")) {
-                        let n = line.split_whitespace().next().unwrap_or("0");
-                        let v: f32 = n.trim_end_matches('%').parse().unwrap_or(0.0);
-                        if n.ends_with('%') { pen_pct += v } else { pen += v }
-                    }
+                    let (pen, pen_pct) = self.magic_pen();
                     let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
                     let pen_txt = match (pen > 0.0, pen_pct > 0.0) {
                         (true, true) => format!("{pen:.0} | {pen_pct:.0}%"),
@@ -2568,6 +2568,41 @@ impl Game {
             f.set_disabled_secondary_actions(on);
         }
         on
+    }
+
+    /// Magic penetration from his items' stat lines: (flat, percent).
+    fn magic_pen(&self) -> (f32, f32) {
+        let (mut pen, mut pen_pct) = (0.0f32, 0.0f32);
+        for line in self.items.iter().filter_map(|&i| self.item_info(i)).flat_map(|i| i.stat_lines.iter()).filter(|l| l.contains("penetración mágica")) {
+            let n = line.split_whitespace().next().unwrap_or("0");
+            let v: f32 = n.trim_end_matches('%').parse().unwrap_or(0.0);
+            if n.ends_with('%') { pen_pct += v } else { pen += v }
+        }
+        (pen, pen_pct)
+    }
+
+    /// An enemy's League magic resistance after his penetration. A base by how tough it is (normal, strong, boss)
+    /// plus its own magic absorption from Elden Ring's NpcParam: absorbing a share a is League MR 100/(1-a) - 100
+    /// (a weakness gives negative MR). Penetration as in League: % first, then flat, never below 0.
+    fn enemy_mr(&self, c: &ChrIns, ptr: usize) -> f32 {
+        let cut = unsafe { eldenring::cs::SoloParamRepository::instance() }
+            .ok()
+            .and_then(|r| r.get::<eldenring::cs::NpcParam>(c.npc_param_id as u32).map(|p| p.magic_damage_cut_rate()))
+            .filter(|r| *r > 0.05)
+            .unwrap_or(1.0);
+        let base = if self.boss_ptrs.contains(&ptr) {
+            tuning::MR_BOSS
+        } else if c.team_type == 7 {
+            tuning::MR_STRONG
+        } else {
+            tuning::MR_BASE
+        };
+        let mr = base + 100.0 / cut - 100.0;
+        if mr < 0.0 {
+            return mr;
+        }
+        let (pen, pen_pct) = self.magic_pen();
+        (mr * (1.0 - pen_pct / 100.0) - pen).max(0.0)
     }
 
     /// Item burns: a share of the target's max HP per second while they last.

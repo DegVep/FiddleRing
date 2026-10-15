@@ -241,6 +241,24 @@
       "value": 120.0,
       "unit": "s",
       "why": "Zhonya's stasis (T) cooldown, League's 120 s"
+    },
+    {
+      "id": "mr_base",
+      "value": 20.0,
+      "unit": "MR",
+      "why": "League magic resistance of a normal enemy before its Elden Ring magic absorption (NpcParam magicDamageCutRate) is added; 20 = takes 83% of his magic damage"
+    },
+    {
+      "id": "mr_strong",
+      "value": 40.0,
+      "unit": "MR",
+      "why": "same for strong enemies (team 7): 71%"
+    },
+    {
+      "id": "mr_boss",
+      "value": 60.0,
+      "unit": "MR",
+      "why": "same for bosses: 63%; Void Staff's 40% pen brings it to 74%"
     }
   ]
 }

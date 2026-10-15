@@ -386,4 +386,10 @@ pub mod tuning {
     pub const BOSS_BANNER_WINDOW: f32 = 6.0;
     /// Zhonya's stasis (T) cooldown, League's 120 s (s)
     pub const ZHONYA_COOLDOWN: f32 = 120.0;
+    /// League magic resistance of a normal enemy before its Elden Ring magic absorption (NpcParam magicDamageCutRate) is added; 20 = takes 83% of his magic damage (MR)
+    pub const MR_BASE: f32 = 20.0;
+    /// same for strong enemies (team 7): 71% (MR)
+    pub const MR_STRONG: f32 = 40.0;
+    /// same for bosses: 63%; Void Staff's 40% pen brings it to 74% (MR)
+    pub const MR_BOSS: f32 = 60.0;
 }
