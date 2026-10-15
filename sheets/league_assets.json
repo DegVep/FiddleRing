@@ -257,6 +257,22 @@
       "kind": "anm",
       "required": false,
       "used_by": "dll:effects (3D crows, textured with fx_q_crow)"
+    },
+    {
+      "id": "items_sfx_events",
+      "wad": "common",
+      "locator": "ASSETS/Sounds/Wwise2016/SFX/Shared/ITEMS_Global_events.bnk",
+      "kind": "bnk",
+      "required": false,
+      "used_by": "prep:audio (Zhonya sound; the stasis falls back to the sheet time)"
+    },
+    {
+      "id": "items_sfx_audio",
+      "wad": "common",
+      "locator": "ASSETS/Sounds/Wwise2016/SFX/Shared/ITEMS_Global_audio.bnk",
+      "kind": "bnk",
+      "required": false,
+      "used_by": "prep:audio (Zhonya sound; the stasis falls back to the sheet time)"
     }
   ]
 }

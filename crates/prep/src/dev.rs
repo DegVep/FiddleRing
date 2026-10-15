@@ -84,6 +84,21 @@ pub fn run(args: &[String]) -> Result<()> {
         let w = Wad::open(Path::new(&args[2]))?;
         std::fs::write(&args[4], w.read(&args[3])?)?;
     }
+    if args.get(1).map(|s| s.as_str()) == Some("--grep") {
+        // --grep <wad> <text>: printable runs around each case-insensitive match in any chunk
+        let w = Wad::open(Path::new(&args[2]))?;
+        let needle = args[3].to_ascii_lowercase().into_bytes();
+        for c in w.chunks.values() {
+            let Ok(d) = w.read_chunk(c) else { continue };
+            let low = d.to_ascii_lowercase();
+            for i in low.windows(needle.len()).enumerate().filter(|(_, x)| *x == needle.as_slice()).map(|(i, _)| i) {
+                let printable = |b: &u8| b.is_ascii_graphic() || *b == b' ';
+                let a = (0..i).rev().take_while(|&k| printable(&d[k])).last().unwrap_or(i);
+                let b = (i..d.len()).take_while(|&k| printable(&d[k])).last().unwrap_or(i);
+                println!("{}", String::from_utf8_lossy(&d[a..=b]));
+            }
+        }
+    }
     if args.get(1).map(|s| s.as_str()) == Some("--has") {
         let w = Wad::open(Path::new(&args[2]))?;
         for p in &args[3..] { match w.get(p) { Some(c) => { let d = w.read_chunk(&c)?; println!("YES {p} len {} magic {:?}", d.len(), String::from_utf8_lossy(&d[..8.min(d.len())])); } None => println!("no  {p}") } }

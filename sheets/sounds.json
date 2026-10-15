@@ -1,35 +1,246 @@
 {
   "sheet": "sounds",
-  "doc": "Sound cues the DLL plays. event = Wwise event name in Fiddlesticks own banks; prep resolves it to the player's wems and decodes them. chance and min_interval keep the voice from spamming.",
-  "columns": ["id", "bank", "event", "volume", "chance", "min_interval"],
+  "doc": "Sound cues the DLL plays. event = Wwise event name in Fiddlesticks own banks; prep resolves it to the player's wems and decodes them. chance and min_interval keep the voice from spamming. bank: sfx / vo (his own banks, per skin) or items (League's shared item bank ITEMS_Global, same for every skin).",
+  "columns": [
+    "id",
+    "bank",
+    "event",
+    "volume",
+    "chance",
+    "min_interval"
+  ],
   "rows": [
-    {"id": "vo_first_move", "bank": "vo", "event": "Play_vo_Fiddlesticks_Move2DFirst", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_move", "bank": "vo", "event": "Play_vo_Fiddlesticks_Move2DStandard", "volume": 1.0, "chance": 0.35, "min_interval": 20},
-    {"id": "vo_attack", "bank": "vo", "event": "Play_vo_Fiddlesticks_Attack2DGeneral", "volume": 1.0, "chance": 0.5, "min_interval": 8},
-    {"id": "vo_aa", "bank": "vo", "event": "Play_vo_Fiddlesticks_FiddlesticksBasicAttack_cast3D", "volume": 1.0, "chance": 0.15, "min_interval": 10},
-    {"id": "vo_e", "bank": "vo", "event": "Play_vo_Fiddlesticks_FiddlesticksE_cast3D", "volume": 1.0, "chance": 0.6, "min_interval": 6},
-    {"id": "vo_r", "bank": "vo", "event": "Play_vo_Fiddlesticks_FiddlesticksR_cast3D", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_kill", "bank": "vo", "event": "Play_vo_Fiddlesticks_Kill3DGeneral", "volume": 1.0, "chance": 0.3, "min_interval": 12},
-    {"id": "vo_penta", "bank": "vo", "event": "Play_vo_Fiddlesticks_Kill3DPenta", "volume": 1.0, "chance": 1.0, "min_interval": 30},
-    {"id": "vo_death", "bank": "vo", "event": "Play_vo_Fiddlesticks_Death3D", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_respawn", "bank": "vo", "event": "Play_vo_Fiddlesticks_Respawn2DGeneral", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_joke", "bank": "vo", "event": "Play_vo_Fiddlesticks_Joke3DGeneral", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_taunt", "bank": "vo", "event": "Play_vo_Fiddlesticks_Taunt3DGeneral", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_laugh", "bank": "vo", "event": "Play_vo_Fiddlesticks_Laugh3DGeneral", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "vo_recall", "bank": "vo", "event": "Play_vo_Fiddlesticks_Recall3DGeneral", "volume": 1.0, "chance": 1.0, "min_interval": 30},
-    {"id": "sfx_aa_cast", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksBasicAttack_OnCast", "volume": 0.9, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_aa_hit", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksBasicAttack_OnHit", "volume": 0.9, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_q_cast", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksQ_OnCast", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_q_hit", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksQmissilefear_OnHit", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_w_cast", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksW_OnCast", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_w_drain", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksWdrain_OnBuffActivate", "volume": 0.8, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_w_final", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksW_finaltick", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_e_cast", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksE_OnCast", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_e_hit", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksE_hit_regular", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_r_cast", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksR_OnCast", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_r_storm", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_FiddlesticksR_OnBuffActivate", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_dance", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_Dance3D_loop", "volume": 0.8, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_death", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_Death3D_buffactivate", "volume": 1.0, "chance": 1.0, "min_interval": 0},
-    {"id": "sfx_respawn", "bank": "sfx", "event": "Play_sfx_Fiddlesticks_Respawn3D_buffactivate", "volume": 1.0, "chance": 1.0, "min_interval": 0}
+    {
+      "id": "vo_first_move",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Move2DFirst",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_move",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Move2DStandard",
+      "volume": 1.0,
+      "chance": 0.35,
+      "min_interval": 20
+    },
+    {
+      "id": "vo_attack",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Attack2DGeneral",
+      "volume": 1.0,
+      "chance": 0.5,
+      "min_interval": 8
+    },
+    {
+      "id": "vo_aa",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_FiddlesticksBasicAttack_cast3D",
+      "volume": 1.0,
+      "chance": 0.15,
+      "min_interval": 10
+    },
+    {
+      "id": "vo_e",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_FiddlesticksE_cast3D",
+      "volume": 1.0,
+      "chance": 0.6,
+      "min_interval": 6
+    },
+    {
+      "id": "vo_r",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_FiddlesticksR_cast3D",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_kill",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Kill3DGeneral",
+      "volume": 1.0,
+      "chance": 0.3,
+      "min_interval": 12
+    },
+    {
+      "id": "vo_penta",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Kill3DPenta",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 30
+    },
+    {
+      "id": "vo_death",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Death3D",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_respawn",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Respawn2DGeneral",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_joke",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Joke3DGeneral",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_taunt",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Taunt3DGeneral",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_laugh",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Laugh3DGeneral",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "vo_recall",
+      "bank": "vo",
+      "event": "Play_vo_Fiddlesticks_Recall3DGeneral",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 30
+    },
+    {
+      "id": "sfx_aa_cast",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksBasicAttack_OnCast",
+      "volume": 0.9,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_aa_hit",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksBasicAttack_OnHit",
+      "volume": 0.9,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_q_cast",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksQ_OnCast",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_q_hit",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksQmissilefear_OnHit",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_w_cast",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksW_OnCast",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_w_drain",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksWdrain_OnBuffActivate",
+      "volume": 0.8,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_w_final",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksW_finaltick",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_e_cast",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksE_OnCast",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_e_hit",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksE_hit_regular",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_r_cast",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksR_OnCast",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_r_storm",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_FiddlesticksR_OnBuffActivate",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_dance",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_Dance3D_loop",
+      "volume": 0.8,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_death",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_Death3D_buffactivate",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_respawn",
+      "bank": "sfx",
+      "event": "Play_sfx_Fiddlesticks_Respawn3D_buffactivate",
+      "volume": 1.0,
+      "chance": 1.0,
+      "min_interval": 0
+    },
+    {
+      "id": "sfx_zhonya",
+      "bank": "items",
+      "event": "Play_sfx_ZhonyasHourglass_OnCast",
+      "volume": 0.9,
+      "chance": 1.0,
+      "min_interval": 0
+    }
   ]
 }

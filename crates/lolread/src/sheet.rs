@@ -64,6 +64,7 @@ pub const SOUNDS: &[Sound] = &[
     Sound { id: "sfx_dance", bank: "sfx", event: "Play_sfx_Fiddlesticks_Dance3D_loop", volume: 0.8, chance: 1.0, min_interval: 0.0 },
     Sound { id: "sfx_death", bank: "sfx", event: "Play_sfx_Fiddlesticks_Death3D_buffactivate", volume: 1.0, chance: 1.0, min_interval: 0.0 },
     Sound { id: "sfx_respawn", bank: "sfx", event: "Play_sfx_Fiddlesticks_Respawn3D_buffactivate", volume: 1.0, chance: 1.0, min_interval: 0.0 },
+    Sound { id: "sfx_zhonya", bank: "items", event: "Play_sfx_ZhonyasHourglass_OnCast", volume: 0.9, chance: 1.0, min_interval: 0.0 },
 ];
 
 pub struct Level { pub level: u32, pub xp_total: f32, pub rank_up: &'static str }
@@ -121,6 +122,8 @@ pub const ASSETS: &[Asset] = &[
     Asset { id: "raven_skn", wad: "champion", locator: "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Raven_DeathBody_FlyOut.skn", kind: "skn", required: false },
     Asset { id: "raven_skl", wad: "champion", locator: "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Raven_DeathBody_FlyOut.skl", kind: "skl", required: false },
     Asset { id: "raven_anm", wad: "champion", locator: "ASSETS/Characters/Fiddlesticks/Skins/Base/Particles/FiddleSticks_Base_Q_RavenFly.anm", kind: "anm", required: false },
+    Asset { id: "items_sfx_events", wad: "common", locator: "ASSETS/Sounds/Wwise2016/SFX/Shared/ITEMS_Global_events.bnk", kind: "bnk", required: false },
+    Asset { id: "items_sfx_audio", wad: "common", locator: "ASSETS/Sounds/Wwise2016/SFX/Shared/ITEMS_Global_audio.bnk", kind: "bnk", required: false },
 ];
 
 pub struct HudItem { pub id: &'static str, pub kind: &'static str, pub source: &'static str, pub x: f32, pub y: f32, pub w: f32, pub h: f32, pub binding: &'static str }

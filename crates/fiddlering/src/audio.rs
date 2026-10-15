@@ -96,29 +96,35 @@ impl Audio {
 
     /// Plays a sounds-sheet row (respecting its chance and minimum interval). Returns whether it played.
     pub fn play(&mut self, id: &str) -> bool {
-        let Some(row) = sheet::SOUNDS.iter().find(|s| s.id == id) else { return false };
+        self.play_secs(id).is_some()
+    }
+
+    /// Like `play`, returning how long the sound lasts in seconds.
+    pub fn play_secs(&mut self, id: &str) -> Option<f32> {
+        let Some(row) = sheet::SOUNDS.iter().find(|s| s.id == id) else { return None };
         if let Some(t) = self.last.get(row.id) {
             if t.elapsed().as_secs_f32() < row.min_interval {
-                return false;
+                return None;
             }
         }
         if self.rand() > row.chance {
-            return false;
+            return None;
         }
         let r = self.rand();
-        let Some(list) = self.files.get(row.id).filter(|l| !l.is_empty()) else { return false };
+        let Some(list) = self.files.get(row.id).filter(|l| !l.is_empty()) else { return None };
         let file = list[(r * list.len() as f32) as usize % list.len()].clone();
         let dir = self.dir.clone();
         let wav = self.wavs.entry(file.clone()).or_insert_with(|| std::fs::read(dir.join(&file)).ok().and_then(|b| parse_wav(&b)));
-        let Some(w) = wav else { return false };
+        let Some(w) = wav else { return None };
         let (fmt, data) = (w.fmt, w.data.clone());
+        let secs = data.len() as f32 / fmt.nAvgBytesPerSec.max(1) as f32;
         unsafe {
             let mut v: Option<IXAudio2SourceVoice> = None;
             if let Err(e) = self._x.CreateSourceVoice(&mut v, &fmt, 0, 2.0, None, None, None) {
                 log!("audio: {id}: {e:?}");
-                return false;
+                return None;
             }
-            let Some(v) = v else { return false };
+            let Some(v) = v else { return None };
             let buf = XAUDIO2_BUFFER {
                 Flags: XAUDIO2_END_OF_STREAM,
                 AudioBytes: data.len() as u32,
@@ -128,12 +134,12 @@ impl Audio {
             let _ = v.SetVolume(self.volume * row.volume, 0);
             if v.SubmitSourceBuffer(&buf, None).is_err() || v.Start(0, 0).is_err() {
                 v.DestroyVoice();
-                return false;
+                return None;
             }
             self.playing.push((v, data, row.id));
         }
         self.last.insert(row.id, Instant::now());
-        true
+        Some(secs)
     }
 
     /// Switches to another skin's sounds (ids it lacks keep playing the base skin's).

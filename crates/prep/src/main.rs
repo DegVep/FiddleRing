@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--clips" | "--extract" | "--dump" | "--magic" | "--has" | "--bnk")) {
+    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--clips" | "--extract" | "--dump" | "--magic" | "--has" | "--grep" | "--bnk")) {
         if let Err(e) = dev::run(&args) {
             eprintln!("{e:#}");
             std::process::exit(1);
@@ -162,7 +162,9 @@ fn prepare(args: &[String]) -> Result<String> {
     }
     let skins = list_skins(&main_wad, &champions, &locale, &mut icons);
     let items = build_items(&champions, &locale, &mut icons);
-    let (sounds, audio_assets) = build_audio(&main_wad, locale_wad.as_ref(), &out.join("audio"))?;
+    // item sounds (Zhonya) live in the map's shared wad, next to Champions
+    let common_wad = champions.parent().map(|d| d.join("Maps/Shipping/Common.wad.client")).and_then(|p| Wad::open(&p).ok());
+    let (sounds, audio_assets) = build_audio(&main_wad, locale_wad.as_ref(), common_wad.as_ref(), &out.join("audio"))?;
     found_assets.extend(audio_assets);
 
     let c = Cache {
@@ -473,7 +475,7 @@ fn all_chunks(w: &Wad) -> Vec<Vec<u8>> {
     w.chunks.values().filter_map(|c| w.read_chunk(c).ok()).collect()
 }
 
-fn build_audio(main: &Wad, locale: Option<&Wad>, audio_dir: &Path) -> Result<(BTreeMap<String, Vec<String>>, Vec<String>)> {
+fn build_audio(main: &Wad, locale: Option<&Wad>, common: Option<&Wad>, audio_dir: &Path) -> Result<(BTreeMap<String, Vec<String>>, Vec<String>)> {
     let mut found = vec![];
     let sfx_events = audio::read_bnk(&main.read(
         sheet::ASSETS.iter().find(|a| a.id == "sfx_events").unwrap().locator,
@@ -481,6 +483,11 @@ fn build_audio(main: &Wad, locale: Option<&Wad>, audio_dir: &Path) -> Result<(BT
     let sfx_audio = audio::read_bnk(&main.read(sheet::ASSETS.iter().find(|a| a.id == "sfx_audio").unwrap().locator)?)?;
     found.push("sfx_events".into());
     found.push("sfx_audio".into());
+    let item_bank = |id: &str| {
+        let loc = sheet::ASSETS.iter().find(|a| a.id == id)?.locator;
+        audio::read_bnk(&common?.read(loc).ok()?).ok()
+    };
+    let (items_events, items_audio) = (item_bank("items_sfx_events").unwrap_or_default(), item_bank("items_sfx_audio").unwrap_or_default());
 
     // Localised VO: find the events bank by the ids it holds, then whichever bank/wpk resolves them.
     let probe = audio::wwise_id(sheet::ASSETS.iter().find(|a| a.id == "vo_events").unwrap().locator.trim_start_matches("bankevents:"));
@@ -518,7 +525,14 @@ fn build_audio(main: &Wad, locale: Option<&Wad>, audio_dir: &Path) -> Result<(BT
         let id = audio::wwise_id(s.event);
         let mut wems = vec![];
         let mut bytes: HashMap<u32, Vec<u8>> = HashMap::new();
-        if s.bank == "sfx" {
+        if s.bank == "items" {
+            for w in audio::resolve_event(id, &[&items_events, &items_audio]) {
+                if let Some(b) = items_audio.wems.get(&w) {
+                    bytes.insert(w, b.clone());
+                }
+                wems.push(w);
+            }
+        } else if s.bank == "sfx" {
             for w in audio::resolve_event(id, &[&sfx_events, &sfx_audio]) {
                 if let Some(b) = sfx_audio.wems.get(&w) {
                     bytes.insert(w, b.clone());
@@ -814,6 +828,9 @@ fn build_skin_audio(main: &Wad, locale_wad: Option<&Wad>, locale: &str, skin: &V
     let mut pending: Vec<(u32, PathBuf)> = vec![];
     let mut cues: BTreeMap<String, Vec<u32>> = BTreeMap::new();
     for s in sheet::SOUNDS {
+        if s.bank == "items" {
+            continue; // the same for every skin
+        }
         let vo = s.bank != "sfx";
         let Some((_, u)) = units.iter().find(|(v, _)| *v == vo) else { continue };
         let event = s.event.replacen("_Fiddlesticks_", &format!("_{}_", u.tag), 1);

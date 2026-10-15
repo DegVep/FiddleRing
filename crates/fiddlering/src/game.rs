@@ -2550,7 +2550,9 @@ impl Game {
         self.stasis_key = down;
         let owned = self.items.iter().any(|id| sheet::ITEMS.iter().any(|r| r.id == *id && r.effect == "stasis"));
         if pressed && owned && !self.dead && self.clock >= self.stasis_ready_at {
-            self.stasis_until = self.clock + self.item_effect("stasis");
+            // it lasts as long as League's sound (the sheet value if the sound is missing)
+            let secs = self.audio.as_mut().and_then(|a| a.play_secs("sfx_zhonya")).map(|s| s.clamp(1.0, 6.0));
+            self.stasis_until = self.clock + secs.unwrap_or(self.item_effect("stasis"));
             self.stasis_ready_at = self.clock + tuning::ZHONYA_COOLDOWN;
             log!("ZHONYA stasis");
             self.fx.burst("items", "stasis_start", read_chr(c).pos, [0.0, 1.0, 0.0], 0.0);

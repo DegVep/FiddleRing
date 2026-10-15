@@ -54,7 +54,7 @@
       "id": 3157,
       "effect": "stasis",
       "value": 2.5,
-      "note": "Reloj de arena de Zhonya: T = estasis (value s): gold statue, no damage, no movement"
+      "note": "Reloj de arena de Zhonya: T = estasis while League's Zhonya sound plays (value s if the sound is missing)"
     },
     {
       "id": 4629,
