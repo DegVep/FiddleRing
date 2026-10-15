@@ -355,6 +355,18 @@
       "value": 0.5,
       "unit": "s",
       "why": "madness builds up at most this often per target (W and R hit many times a second)"
+    },
+    {
+      "id": "npc_anger_hits",
+      "value": 2.0,
+      "unit": "hits",
+      "why": "a friendly NPC turns hostile after this many of his hits (Elden Ring: one hit makes them complain, more turn them)"
+    },
+    {
+      "id": "npc_hostile_team",
+      "value": 27.0,
+      "unit": "team",
+      "why": "the team an angered NPC moves to: 27 hostile NPC (Elden Ring's TEAM_TYPE)"
     }
   ]
 }

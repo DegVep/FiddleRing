@@ -1,11 +1,12 @@
 {
   "sheet": "er_teams",
-  "doc": "Elden Ring character team types (ChrIns.team_type). hostile = Fiddlesticks' abilities hit it. Unknown types are logged in game; verified = seen in the running game.",
+  "doc": "Elden Ring character team types (ChrIns.team_type). hostile = Fiddlesticks' abilities hit it. Names from Smithbox's ER TEAM_TYPE enum (26 friendly NPC, 27 hostile NPC; the old 9/14 come from earlier games). Unknown types are logged in game; verified = seen in the running game. npc = a friendly NPC: his abilities hit it only while the player is locked onto it (no stray E or R near a grace), and after npc_anger_hits hits it turns hostile (team 9, what Elden Ring's events do).",
   "columns": [
     "id",
     "team_type",
     "name",
     "hostile",
+    "npc",
     "verified"
   ],
   "rows": [
@@ -14,118 +15,215 @@
       "team_type": 0,
       "name": "none",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "live",
       "team_type": 1,
       "name": "host player",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "white_ghost",
       "team_type": 2,
       "name": "cooperator",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "black_ghost",
       "team_type": 3,
       "name": "invader",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "gray_ghost",
       "team_type": 4,
       "name": "gray phantom",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "wander_ghost",
       "team_type": 5,
       "name": "wandering phantom",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "enemy",
       "team_type": 6,
       "name": "enemy",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "strong_enemy",
       "team_type": 7,
       "name": "boss / strong enemy",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "friend",
       "team_type": 8,
       "name": "ally (spirit ash)",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "hostile_friend",
       "team_type": 9,
-      "name": "hostile NPC",
+      "name": "hostile ally",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "decoy",
       "team_type": 10,
       "name": "decoy",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "red_child",
       "team_type": 11,
       "name": "red child",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "fighting_friend",
       "team_type": 12,
       "name": "fighting ally",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "intruder",
       "team_type": 13,
       "name": "NPC invader",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "neutral",
       "team_type": 14,
       "name": "neutral NPC / merchant",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": true
     },
     {
       "id": "charm",
       "team_type": 15,
       "name": "charmed",
       "hostile": false,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     },
     {
       "id": "indiscriminate",
       "team_type": 16,
-      "name": "attacks everyone",
+      "name": "invader",
       "hostile": true,
+      "verified": "no",
+      "npc": false
+    },
+    {
+      "id": "hostile",
+      "team_type": 21,
+      "name": "hostile",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "enemy_1",
+      "team_type": 23,
+      "name": "enemy 1",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "enemy_2",
+      "team_type": 24,
+      "name": "enemy 2",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "strong_enemy_2",
+      "team_type": 25,
+      "name": "strong enemy",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "friendly_npc",
+      "team_type": 26,
+      "name": "friendly NPC (merchants, quest NPCs)",
+      "hostile": false,
+      "npc": true,
+      "verified": "yes"
+    },
+    {
+      "id": "hostile_npc",
+      "team_type": 27,
+      "name": "hostile NPC (an angered one too)",
+      "hostile": true,
+      "npc": false,
+      "verified": "yes"
+    },
+    {
+      "id": "coop_npc",
+      "team_type": 28,
+      "name": "co-op NPC summon",
+      "hostile": false,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "indiscriminate_29",
+      "team_type": 29,
+      "name": "indiscriminate",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "arch_enemy",
+      "team_type": 33,
+      "name": "arch enemy team",
+      "hostile": true,
+      "npc": false,
+      "verified": "no"
+    },
+    {
+      "id": "spirit_summon",
+      "team_type": 47,
+      "name": "spirit summon",
+      "hostile": false,
+      "npc": false,
       "verified": "no"
     },
     {
@@ -133,7 +231,8 @@
       "team_type": 48,
       "name": "enemy soldier (Godrick guard, chr 4311)",
       "hostile": true,
-      "verified": "no"
+      "verified": "no",
+      "npc": false
     }
   ]
 }

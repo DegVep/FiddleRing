@@ -238,8 +238,10 @@ pub const EFFECTS: &[Effect] = &[
 ];
 
 /// Elden Ring team types Fiddlesticks' abilities hit.
-pub const HOSTILE_TEAMS: &[u8] = &[3, 6, 7, 9, 11, 13, 16, 48];
-pub const KNOWN_TEAMS: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 48];
+pub const HOSTILE_TEAMS: &[u8] = &[3, 6, 7, 9, 11, 13, 16, 21, 23, 24, 25, 27, 29, 33, 48];
+/// Friendly NPC teams: hit only while locked onto, angered by hits.
+pub const NPC_TEAMS: &[u8] = &[14, 26];
+pub const KNOWN_TEAMS: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 21, 23, 24, 25, 26, 27, 28, 29, 33, 47, 48];
 
 /// ChrActions bits taken from Elden Ring (er_actions sheet: Fiddlesticks + blocked).
 pub const BLOCKED_ACTION_BITS: &[u32] = &[4, 5, 7, 8, 9, 10, 11, 16, 17, 19, 20, 21, 24, 25, 26, 27, 29, 33, 34];
@@ -448,4 +450,8 @@ pub mod tuning {
     pub const MADNESS_BUILDUP: f32 = 30.0;
     /// madness builds up at most this often per target (W and R hit many times a second) (s)
     pub const MADNESS_INTERVAL: f32 = 0.5;
+    /// a friendly NPC turns hostile after this many of his hits (Elden Ring: one hit makes them complain, more turn them) (hits)
+    pub const NPC_ANGER_HITS: f32 = 2.0;
+    /// the team an angered NPC moves to: 27 hostile NPC (Elden Ring's TEAM_TYPE) (team)
+    pub const NPC_HOSTILE_TEAM: f32 = 27.0;
 }

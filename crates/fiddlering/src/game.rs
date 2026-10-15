@@ -164,6 +164,8 @@ pub struct Game {
     item_keys: [bool; 4],
     /// bosses whose health bar showed, a boss died and when the bars cleared
     boss_ptrs: HashSet<usize>,
+    /// his hits on each friendly NPC (it turns hostile at npc_anger_hits)
+    npc_hits: HashMap<usize, u32>,
     /// last madness buildup per target (clock): channels and storms hit many times a second
     madness_at: HashMap<usize, f32>,
     /// the Tarnished's level and Scadutree Blessing, read each frame
@@ -413,6 +415,7 @@ impl Game {
             inv_open: None,
             item_keys: [false; 4],
             boss_ptrs: HashSet::new(),
+            npc_hits: HashMap::new(),
             madness_at: HashMap::new(),
             er_level: 1,
             blessing: 0,
@@ -694,6 +697,15 @@ impl Game {
         };
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
+        if sheet::NPC_TEAMS.contains(&c.team_type) && what != "BURN" && what != "FOG" {
+            let n = self.npc_hits.entry(ch.ptr).or_insert(0);
+            *n += 1;
+            if *n as f32 >= tuning::NPC_ANGER_HITS || new == 0 {
+                log!("NPC chr {} turns hostile after {} hit(s)", c.character_id, n);
+                c.team_type = tuning::NPC_HOSTILE_TEAM as u8;
+                self.npc_hits.remove(&ch.ptr);
+            }
+        }
         if new > 0 && matches!(what, "Q" | "W" | "E" | "R") {
             if what == "E" {
                 apply_status(c, Status::Frost);
@@ -1034,6 +1046,7 @@ impl Game {
         let _ = player;
 
         // characters near the player this frame
+        let locked_pre = wcm.chr_ins_by_handle(&locked).map(|c| c as *const ChrIns as usize);
         let mut alive = HashSet::new();
         let mut hostiles: Vec<Chr> = vec![];
         self.near.clear();
@@ -1057,7 +1070,9 @@ impl Game {
                     log!("unknown team type {} (chr {}) near the player", c.team_type, c.character_id);
                 }
                 // test runs also target the characters they spawn themselves (any non-player team)
-                if sheet::HOSTILE_TEAMS.contains(&c.team_type) || (self.test && c.team_type != 1) {
+                // a friendly NPC only while locked onto: no stray E or R into a merchant
+                let npc_target = sheet::NPC_TEAMS.contains(&c.team_type) && locked_pre == Some(p);
+                if sheet::HOSTILE_TEAMS.contains(&c.team_type) || npc_target || (self.test && c.team_type != 1) {
                     hostiles.push(ch);
                 }
             }

@@ -209,6 +209,8 @@ def gen():
 
     out.append("/// Elden Ring team types Fiddlesticks' abilities hit.")
     out.append("pub const HOSTILE_TEAMS: &[u8] = &[" + ", ".join(str(r["team_type"]) for r in s["er_teams"]["rows"] if r["hostile"]) + "];")
+    out.append("/// Friendly NPC teams: hit only while locked onto, angered by hits.")
+    out.append("pub const NPC_TEAMS: &[u8] = &[" + ", ".join(str(r["team_type"]) for r in s["er_teams"]["rows"] if r["npc"]) + "];")
     out.append("pub const KNOWN_TEAMS: &[u8] = &[" + ", ".join(str(r["team_type"]) for r in s["er_teams"]["rows"]) + "];\n")
 
     out.append("/// ChrActions bits taken from Elden Ring (er_actions sheet: Fiddlesticks + blocked).")
