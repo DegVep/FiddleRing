@@ -184,9 +184,9 @@ impl Fx {
         self.parts.retain(|p| p.age < p.life);
     }
 
-    /// Sprites (and crows) for every live particle.
-    pub fn draw(&self, view: &View, ability_radius: impl Fn(&str) -> f32, out: &mut Vec<Sprite>, crows: &mut Vec<Crow>) {
-        for p in &self.parts {
+    /// Sprites (and crows) for every live particle: the items' ones (their own colours, not the skin's) or the rest.
+    pub fn draw(&self, view: &View, ability_radius: impl Fn(&str) -> f32, out: &mut Vec<Sprite>, crows: &mut Vec<Crow>, items: bool) {
+        for p in self.parts.iter().filter(|p| (p.e.effect == "items") == items) {
             let e = p.e;
             let t = (p.age / p.life).clamp(0.0, 1.0);
             let size = e.size_start + (e.size_end - e.size_start) * t;

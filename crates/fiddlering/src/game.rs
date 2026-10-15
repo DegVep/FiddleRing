@@ -653,6 +653,9 @@ impl Game {
         let c = chr_mut(ch.ptr);
         // his abilities and burns are magic damage: the enemy's magic resistance, less his penetration
         let mr = self.enemy_mr(c, ch.ptr);
+        if magic && !matches!(what, "W" | "BURN" | "FOG") && self.item_effect("pen_fx") > 0.0 {
+            self.fx.burst("items", "pen", add(ch.pos, [0.0, ch.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
+        }
         if magic {
             amount *= if mr >= 0.0 { 100.0 / (100.0 + mr) } else { 2.0 - 100.0 / (100.0 - mr) };
         }
@@ -984,6 +987,9 @@ impl Game {
         self.update_item_dots(dt);
         if in_stasis {
             self.fx.stream("items", "stasis", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        }
+        if self.clock < self.spelldance_until {
+            self.fx.stream("items", "dance", 0, add(me.pos, [0.0, 0.05, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
         }
         if self.item_effect("ap_mult") > 0.0 {
             self.fx.stream("items", "aura", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
@@ -1764,7 +1770,9 @@ impl Game {
         self.fx.update(self.dt, me.pos, soul);
         let radii = [("w_drain", self.effect_radius("w_drain")), ("e_reap", self.effect_radius("e_reap")), ("r_crowstorm", self.effect_radius("r_crowstorm"))];
         let radius_of = |g: &str| radii.iter().find(|r| r.0 == g).map(|r| r.1).unwrap_or(1.0);
-        self.fx.draw(&view, radius_of, &mut scene.world, &mut crows);
+        self.fx.draw(&view, &radius_of, &mut scene.world, &mut crows, false);
+        let mut item_sprites = vec![];
+        self.fx.draw(&view, &radius_of, &mut item_sprites, &mut crows, true);
 
         // missiles: their heads are emitter rows too (a glowing bolt, or a real crow for Terrify)
         for m in self.missiles.iter().filter(|m| !self.vfx_live.contains_key(&(if m.slot == 0 { "aa_missile" } else { "q_missile" }, m.id))) {
@@ -1824,6 +1832,7 @@ impl Game {
                 s.color = [c[0], c[1], c[2], s.color[3]];
             }
         }
+        scene.world.extend(item_sprites);
         self.draw_health_bars(&me, &cam_m, pc.fov, pc.near_plane, pc.far_plane, &mut scene);
         // talking to someone (er_menus action hud): no HUD over the dialogue, nor between its lines
         if sheet::HUD_HIDE_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
@@ -2779,6 +2788,12 @@ impl Game {
         }
         let cut = self.item_effect("grievous");
         self.wounded.retain(|p, w| w.0 > clock && alive.contains(p));
+        let wounded: Vec<usize> = self.wounded.keys().copied().collect();
+        for p in wounded {
+            let ch = read_chr(chr_mut(p));
+            self.fx.stream("items", "wounds", p, add(ch.pos, [0.0, ch.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+            self.fx.stream("items", "wounds_ground", p, add(ch.pos, [0.0, 0.05, 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+        }
         for (p, w) in self.wounded.iter_mut() {
             let data = &mut chr_mut(*p).modules.data;
             if data.hp > w.1 && w.1 > 0 {

@@ -1,6 +1,6 @@
 {
   "sheet": "items",
-  "doc": "League items Fiddlesticks builds, offered three at a time when a boss dies (max 6 owned). id = League item id: name, description, stats and icon come from the player's League client (items.json, es). Stats from the item's lines apply: ability power, ability haste, magic penetration (% then flat), health (added to his Elden Ring max HP), armor (takes 100/(100+armor) off damage taken), movement speed %; mana does not (he has none). An item can have several rows, one per passive; enemies count as champions. effect: burn (share of max HP per second for 3 s on ability hits), burn_ap (AP share per burning enemy), slow (ability hits, 1 s), ap_mult, low_hp_mult (magic damage on targets under 40% HP), r_haste (Crowstorm ability haste), combat_dmg (damage share per second in combat, up to combat_dmg_max), omnivamp (heal share of damage while combat_dmg is at its max), ap_from_hp (AP per item health), hatefog (magic damage per second for 3 s on targets of his R; hatefog_ap per AP; hatefog_mr magic resistance off), grievous (share of their healing cut for 3 s after his magic damage), spelldance_ms (movement speed share for 4 s after magic damage), stasis (Zhonya, T), none.",
+  "doc": "League items Fiddlesticks builds, offered three at a time when a boss dies (max 6 owned). id = League item id: name, description, stats and icon come from the player's League client (items.json, es). Stats from the item's lines apply: ability power, ability haste, magic penetration (% then flat), health (added to his Elden Ring max HP), armor (takes 100/(100+armor) off damage taken), movement speed %; mana does not (he has none). An item can have several rows, one per passive; enemies count as champions. effect: burn (share of max HP per second for 3 s on ability hits), burn_ap (AP share per burning enemy), slow (ability hits, 1 s), ap_mult, low_hp_mult (magic damage on targets under 40% HP), r_haste (Crowstorm ability haste), combat_dmg (damage share per second in combat, up to combat_dmg_max), omnivamp (heal share of damage while combat_dmg is at its max), ap_from_hp (AP per item health), hatefog (magic damage per second for 3 s on targets of his R; hatefog_ap per AP; hatefog_mr magic resistance off), grievous (share of their healing cut for 3 s after his magic damage), spelldance_ms (movement speed share for 4 s after magic damage), stasis (Zhonya, T), pen_fx (void burst where penetration cuts through), none.",
   "columns": [
     "id",
     "effect",
@@ -70,9 +70,9 @@
     },
     {
       "id": 3135,
-      "effect": "none",
-      "value": 0,
-      "note": "Bastón del Vacío: 40% magic penetration from its stat line (no passive)"
+      "effect": "pen_fx",
+      "value": 1,
+      "note": "Bastón del Vacío: 40% magic penetration from its stat line (no passive); pen_fx = the void burst on his ability hits"
     },
     {
       "id": 4645,
