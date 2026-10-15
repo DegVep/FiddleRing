@@ -367,6 +367,18 @@
       "value": 27.0,
       "unit": "team",
       "why": "the team an angered NPC moves to: 27 hostile NPC (Elden Ring's TEAM_TYPE)"
+    },
+    {
+      "id": "item_upgrade_step",
+      "value": 0.1,
+      "unit": "share",
+      "why": "with all six slots full a boss upgrades one item instead: +this share to all its stats (AP, haste, penetration, health, armor, speed) per upgrade (creator's choice); saved in upgrades_<save>.txt"
+    },
+    {
+      "id": "item_upgrade_max",
+      "value": 5.0,
+      "unit": "upgrades",
+      "why": "upgrades an item can take (+50% at 0.1 a step)"
     }
   ]
 }

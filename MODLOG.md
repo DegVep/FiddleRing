@@ -81,3 +81,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-15: HUD: "ER <level>" badge beside his level on the portrait; locked item slots read "ER<level>".
 - 2026-10-15: reverted (creator): movement speed back to base x items x W slow; ER level badge removed, locked slots read "Nv" again.
 - 2026-10-15: item slots now open with his champion level (creator): 1, then levels 4/7/10/13/16 (item_slot_first_level 1, step 3); locked slots show "Nv<level>".
+- 2026-10-15: item upgrades (creator chose upgrades over swaps): with six items a boss opens "MEJORA UN OBJETO" (Left/Right/Enter over the six) instead of an offer; each upgrade = +item_upgrade_step 10% to all that item's stats (AP, haste, pen, health, armor, speed via item_mult), up to item_upgrade_max +5; "+N" on HUD slots and cards, "MÁX" when full; saved in upgrades_<save>.txt. Untested in game.

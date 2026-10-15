@@ -158,6 +158,10 @@ pub struct Game {
     ap_total: f32,
     /// League items owned (ids), offered three at a time when a boss dies
     items: Vec<u32>,
+    /// upgrades bought with bosses once all six slots are full: item -> times (each +item_upgrade_step stats)
+    item_ups: HashMap<u32, u32>,
+    /// the upgrade choice open: which owned item is selected
+    upgrade_open: Option<usize>,
     offer: Option<([u32; 3], usize)>,
     /// F3: the items window, on the slot shown
     inv_open: Option<usize>,
@@ -411,6 +415,8 @@ impl Game {
             dmg_carry: HashMap::new(),
             ap_total: 0.0,
             items: vec![],
+            item_ups: HashMap::new(),
+            upgrade_open: None,
             offer: None,
             inv_open: None,
             item_keys: [false; 4],
@@ -598,6 +604,12 @@ impl Game {
             log!("owed boss reward: the item choice opens");
         }
         self.owed_offers = std::fs::read_to_string(owed_path(&key)).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        self.item_ups = std::fs::read_to_string(ups_path(&key))
+            .unwrap_or_default()
+            .split_whitespace()
+            .filter_map(|t| t.split_once(':').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))))
+            .collect();
+        self.upgrade_open = None;
         self.save_key = Some(key);
         self.dirty = true;
         self.save();
@@ -986,7 +998,7 @@ impl Game {
         let player_ptr = &player.chr_ins as *const ChrIns as usize;
         let me = read_chr(&player.chr_ins);
         let rune_ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
-        let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap).sum();
+        let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap * self.item_mult(i.id)).sum();
         let ap_from_hp = self.item_stat("de vida") * self.item_effect("ap_from_hp");
         let blackfire = self.item_effect("burn_ap") * self.burns.len() as f32;
         let ap = (rune_ap + item_ap + ap_from_hp) * (1.0 + self.item_effect("ap_mult") + blackfire);
@@ -1521,7 +1533,7 @@ impl Game {
         let cd = match slot {
             0 => 1.0 / self.attack_speed(),
             _ => {
-                let haste: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.haste).sum::<f32>() + if slot == 4 { self.item_effect("r_haste") } else { 0.0 };
+                let haste: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.haste * self.item_mult(i.id)).sum::<f32>() + if slot == 4 { self.item_effect("r_haste") } else { 0.0 };
                 val(&self.c, slot, "CooldownTime", rank) * 100.0 / (100.0 + haste)
             }
         };
@@ -2414,7 +2426,7 @@ impl Game {
                     frame(out, x, y, w, h, gold_dim);
                     out.push(rect(x, y, w, h, [0.0, 0.0, 0.0, 0.55], "white"));
                     let owned: Vec<&lolread::cache::ItemInfo> = self.items.iter().filter_map(|&i| self.item_info(i)).collect();
-                    let haste: f32 = owned.iter().map(|i| i.haste).sum();
+                    let haste: f32 = owned.iter().map(|i| i.haste * self.item_mult(i.id)).sum();
                     let (pen, pen_pct) = self.magic_pen();
                     let ad = self.stat("ad") + self.stat("ad_per_level") * growth(self.level);
                     let pen_txt = match (pen > 0.0, pen_pct > 0.0) {
@@ -2827,7 +2839,14 @@ impl Game {
 
     /// Three items not owned yet, picked at random.
     fn offer_items(&mut self) {
-        if self.offer.is_some() {
+        if self.offer.is_some() || self.upgrade_open.is_some() {
+            return;
+        }
+        if self.items.len() >= 6 {
+            if self.items.iter().any(|id| self.item_ups.get(id).copied().unwrap_or(0) < tuning::ITEM_UPGRADE_MAX as u32) {
+                self.upgrade_open = Some(0);
+                log!("ITEM upgrade choice opens");
+            }
             return;
         }
         if self.items.len() >= self.item_slots() {
@@ -2869,6 +2888,26 @@ impl Game {
         }
         if self.test && self.clock > 70.0 && self.items.is_empty() && self.offer.is_none() {
             self.offer_items(); // test runs show the choice without a boss
+        }
+        if let Some(mut sel) = self.upgrade_open {
+            let n = self.items.len().max(1);
+            if pressed[1] {
+                sel = (sel + n - 1) % n;
+            }
+            if pressed[2] {
+                sel = (sel + 1) % n;
+            }
+            let ups = self.items.get(sel).map(|id| self.item_ups.get(id).copied().unwrap_or(0)).unwrap_or(0);
+            if pressed[3] && ups < tuning::ITEM_UPGRADE_MAX as u32 {
+                let id = self.items[sel];
+                self.item_ups.insert(id, ups + 1);
+                self.upgrade_open = None;
+                self.save_ups();
+                log!("ITEM upgraded: {id} -> +{}", ups + 1);
+                return;
+            }
+            self.upgrade_open = Some(sel);
+            return;
         }
         if let Some((pick, mut sel)) = self.offer {
             if pressed[1] {
@@ -2936,9 +2975,10 @@ impl Game {
     /// Magic penetration from his items' stat lines: (flat, percent).
     fn magic_pen(&self) -> (f32, f32) {
         let (mut pen, mut pen_pct) = (0.0f32, 0.0f32);
-        for line in self.items.iter().filter_map(|&i| self.item_info(i)).flat_map(|i| i.stat_lines.iter()).filter(|l| l.contains("penetración mágica")) {
+        let lines = self.items.iter().filter_map(|&i| self.item_info(i)).flat_map(|i| i.stat_lines.iter().map(move |l| (i.id, l)));
+        for (id, line) in lines.filter(|(_, l)| l.contains("penetración mágica")) {
             let n = line.split_whitespace().next().unwrap_or("0");
-            let v: f32 = n.trim_end_matches('%').parse().unwrap_or(0.0);
+            let v: f32 = n.trim_end_matches('%').parse::<f32>().unwrap_or(0.0) * self.item_mult(id);
             if n.ends_with('%') { pen_pct += v } else { pen += v }
         }
         (pen, pen_pct)
@@ -2983,11 +3023,11 @@ impl Game {
         self.items
             .iter()
             .filter_map(|&i| self.item_info(i))
-            .flat_map(|i| i.stat_lines.iter())
-            .filter(|l| l.ends_with(name))
-            .filter_map(|l| {
+            .flat_map(|i| i.stat_lines.iter().map(move |l| (i.id, l)))
+            .filter(|(_, l)| l.ends_with(name))
+            .filter_map(|(id, l)| {
                 let n = l.split_whitespace().next()?;
-                let v: f32 = n.trim_end_matches('%').parse().ok()?;
+                let v: f32 = n.trim_end_matches('%').parse::<f32>().ok()? * self.item_mult(id);
                 Some(if n.ends_with('%') { v / 100.0 } else { v })
             })
             .sum()
@@ -3068,6 +3108,20 @@ impl Game {
     fn item_slots(&self) -> usize {
         let past = self.level.saturating_sub(tuning::ITEM_SLOT_FIRST_LEVEL as u32) as f32;
         (1 + (past / tuning::ITEM_SLOT_LEVEL_STEP).floor() as usize).clamp(1, 6)
+    }
+
+    /// An item's stats multiplier from its upgrades.
+    fn item_mult(&self, id: u32) -> f32 {
+        1.0 + tuning::ITEM_UPGRADE_STEP * self.item_ups.get(&id).copied().unwrap_or(0) as f32
+    }
+
+    fn save_ups(&self) {
+        if let Some(key) = &self.save_key {
+            if !self.test {
+                let t: Vec<String> = self.item_ups.iter().map(|(id, n)| format!("{id}:{n}")).collect();
+                let _ = std::fs::write(ups_path(key), t.join(" "));
+            }
+        }
     }
 
     fn save_owed(&self) {
@@ -3151,6 +3205,11 @@ impl Game {
                 }
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
+                    let ups = self.item_ups.get(&id).copied().unwrap_or(0);
+                    if ups > 0 {
+                        out.push(rect(x, y, 15.0, 12.0, [0.0, 0.0, 0.0, 0.8], "white"));
+                        label(out, &format!("+{ups}"), x + 7.5, y + 1.0, 10.0, [1.0, 0.86, 0.50, 1.0]);
+                    }
                     if sheet::ITEMS.iter().any(|r| r.id == id && r.effect == "stasis") {
                         // its active: the key, and the cooldown filling up like an ability's
                         let left_s = self.stasis_ready_at - self.clock;
@@ -3202,6 +3261,11 @@ impl Game {
                 label(out, &line, x + w * 0.5, ty, 20.0, gold);
                 ty += 24.0;
             }
+            let ups = self.item_ups.get(&id).copied().unwrap_or(0);
+            if ups > 0 {
+                label(out, &format!("Mejorado +{ups}: +{:.0}% a sus estadísticas", ups as f32 * tuning::ITEM_UPGRADE_STEP * 100.0), x + w * 0.5, ty, 13.0, [1.0, 0.86, 0.50, 1.0]);
+                ty += 18.0;
+            }
             ty += 4.0;
             for s in &info.stat_lines {
                 // League's stat icon, the number in the stat's colour, then its name
@@ -3237,7 +3301,32 @@ impl Game {
                 }
             }
         };
-        if let Some((pick, sel)) = self.offer {
+        if let Some(sel) = self.upgrade_open {
+            out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.55], "white"));
+            label(out, "JEFE DERROTADO: MEJORA UN OBJETO", 960.0, 175.0, 30.0, gold);
+            label(out, &format!("+{:.0}% a todas sus estadísticas (máximo +{:.0})", tuning::ITEM_UPGRADE_STEP * 100.0, tuning::ITEM_UPGRADE_MAX), 960.0, 215.0, 16.0, grey);
+            for i in 0..self.items.len() {
+                let id = self.items[i];
+                let x = 960.0 - self.items.len() as f32 * 38.0 + i as f32 * 76.0 + 6.0;
+                let ups = self.item_ups.get(&id).copied().unwrap_or(0);
+                let maxed = ups >= tuning::ITEM_UPGRADE_MAX as u32;
+                frame(out, x, 250.0, 64.0, 64.0, if i == sel { gold } else { gold_dim });
+                icon(out, id, x, 250.0, 64.0);
+                if maxed {
+                    out.push(rect(x, 250.0, 64.0, 64.0, [0.0, 0.0, 0.0, 0.6], "white"));
+                    label(out, "MÁX", x + 32.0, 274.0, 14.0, grey);
+                } else if ups > 0 {
+                    label(out, &format!("+{ups}"), x + 32.0, 318.0, 14.0, [1.0, 0.86, 0.50, 1.0]);
+                }
+            }
+            if let Some(&id) = self.items.get(sel) {
+                card(out, id, 760.0, 345.0, 400.0, 380.0, true);
+                let ups = self.item_ups.get(&id).copied().unwrap_or(0);
+                let next = if ups >= tuning::ITEM_UPGRADE_MAX as u32 { "Ya está al máximo".to_string() } else { format!("+{ups}  →  +{}", ups + 1) };
+                label(out, &next, 960.0, 735.0, 18.0, [1.0, 0.86, 0.50, 1.0]);
+            }
+            label(out, "Izquierda/Derecha: elegir  ·  Enter: mejorarlo", 960.0, 765.0, 17.0, grey);
+        } else if let Some((pick, sel)) = self.offer {
             out.push(rect(0.0, 0.0, 1920.0, 1080.0, [0.0, 0.0, 0.0, 0.55], "white"));
             label(out, "JEFE DERROTADO: ELIGE UN OBJETO", 960.0, 255.0, 30.0, gold);
             for (i, &id) in pick.iter().enumerate() {
@@ -3452,4 +3541,8 @@ fn apply_status(c: &mut ChrIns, kind: Status) {
     if let Some(id) = found {
         c.apply_speffect(id, false);
     }
+}
+
+fn ups_path(key: &str) -> std::path::PathBuf {
+    crate::log::data_dir().join(format!("upgrades_{key}.txt"))
 }

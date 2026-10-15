@@ -454,4 +454,8 @@ pub mod tuning {
     pub const NPC_ANGER_HITS: f32 = 2.0;
     /// the team an angered NPC moves to: 27 hostile NPC (Elden Ring's TEAM_TYPE) (team)
     pub const NPC_HOSTILE_TEAM: f32 = 27.0;
+    /// with all six slots full a boss upgrades one item instead: +this share to all its stats (AP, haste, penetration, health, armor, speed) per upgrade (creator's choice); saved in upgrades_<save>.txt (share)
+    pub const ITEM_UPGRADE_STEP: f32 = 0.1;
+    /// upgrades an item can take (+50% at 0.1 a step) (upgrades)
+    pub const ITEM_UPGRADE_MAX: f32 = 5.0;
 }
