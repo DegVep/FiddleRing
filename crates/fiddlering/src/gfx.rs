@@ -703,6 +703,7 @@ impl Renderer {
             }
             texs.push(("white".into(), Tex { format: lolread::texture::DXGI_BGRA8, width: 4, height: 4, mips: vec![vec![255; 64]] }));
             texs.push(("font".into(), crate::font::atlas()));
+            texs.push(("font_title".into(), crate::font::title_atlas()));
             let srv_heap: ID3D12DescriptorHeap = device.CreateDescriptorHeap(&D3D12_DESCRIPTOR_HEAP_DESC {
                 Type: D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
                 NumDescriptors: texs.len() as u32,

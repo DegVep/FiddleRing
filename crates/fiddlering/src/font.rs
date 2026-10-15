@@ -1,4 +1,5 @@
-//! Glyph atlas for the HUD text (printable ASCII and Spanish letters), rasterised once with GDI (Arial Bold) into a BGRA texture.
+//! Glyph atlases for the HUD text (printable ASCII and Spanish letters), rasterised once with GDI into BGRA textures:
+//! Arial Bold for the HUD, Palatino Linotype for titles (boss names), a serif between Elden Ring's and League's.
 
 use crate::scene::Sprite;
 use lolread::cache::Tex;
@@ -16,12 +17,22 @@ const H: u32 = 6 * CELL_H;
 
 /// per-glyph advance as a fraction of the cell height, measured with GDI when the atlas is built
 static ADVANCE: std::sync::OnceLock<Vec<f32>> = std::sync::OnceLock::new();
+static TITLE_ADVANCE: std::sync::OnceLock<Vec<f32>> = std::sync::OnceLock::new();
 
-fn advance(i: usize) -> f32 {
-    ADVANCE.get().and_then(|a| a.get(i).copied()).unwrap_or(0.41)
+fn advance_in(adv: &std::sync::OnceLock<Vec<f32>>, i: usize) -> f32 {
+    adv.get().and_then(|a| a.get(i).copied()).unwrap_or(0.41)
 }
 
 pub fn atlas() -> Tex {
+    build(w!("Arial"), 700, 44, &ADVANCE)
+}
+
+/// The title face ("font_title").
+pub fn title_atlas() -> Tex {
+    build(w!("Palatino Linotype"), 700, 42, &TITLE_ADVANCE)
+}
+
+fn build(face: windows::core::PCWSTR, weight: i32, height: i32, advances: &std::sync::OnceLock<Vec<f32>>) -> Tex {
     let mut px = vec![0u8; (W * H * 4) as usize];
     unsafe {
         let dc = CreateCompatibleDC(None);
@@ -40,7 +51,7 @@ pub fn atlas() -> Tex {
         let mut bits = std::ptr::null_mut();
         if let Ok(bmp) = CreateDIBSection(Some(dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0) {
             let old = SelectObject(dc, bmp.into());
-            let font = CreateFontW(44, 0, 0, 0, 700, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, 0, w!("Arial"));
+            let font = CreateFontW(height, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, 0, face);
             let oldf = SelectObject(dc, font.into());
             SetBkMode(dc, TRANSPARENT);
             SetTextColor(dc, windows::Win32::Foundation::COLORREF(0x00ffffff));
@@ -55,7 +66,7 @@ pub fn atlas() -> Tex {
                 let _ = GetTextExtentPoint32W(dc, &[c], &mut sz);
                 adv.push(sz.cx as f32 / CELL_H as f32);
             }
-            let _ = ADVANCE.set(adv);
+            let _ = advances.set(adv);
             let _ = GdiFlush();
             let src = std::slice::from_raw_parts(bits as *const u8, px.len());
             for i in 0..(W * H) as usize {
@@ -75,14 +86,31 @@ pub fn atlas() -> Tex {
 
 /// Width of `s` in reference pixels at glyph height `size`.
 pub fn width(s: &str, size: f32) -> f32 {
-    s.chars().map(|ch| CHARS.chars().position(|c| c == ch).map(advance).unwrap_or(0.41) * size).sum()
+    width_in(&ADVANCE, s, size)
+}
+
+fn width_in(adv: &std::sync::OnceLock<Vec<f32>>, s: &str, size: f32) -> f32 {
+    s.chars().map(|ch| CHARS.chars().position(|c| c == ch).map(|i| advance_in(adv, i)).unwrap_or(0.41) * size).sum()
 }
 
 /// Text in the HUD reference frame; `size` is the glyph height in reference pixels. Centred on `cx`.
 pub fn text(s: &str, cx: f32, y: f32, size: f32, color: [f32; 4]) -> Vec<Sprite> {
+    text_in("font", &ADVANCE, s, cx, y, size, color)
+}
+
+/// Like `text`, in the title face.
+pub fn title_width(s: &str, size: f32) -> f32 {
+    width_in(&TITLE_ADVANCE, s, size)
+}
+
+pub fn title_text(s: &str, cx: f32, y: f32, size: f32, color: [f32; 4]) -> Vec<Sprite> {
+    text_in("font_title", &TITLE_ADVANCE, s, cx, y, size, color)
+}
+
+fn text_in(tex: &'static str, adv: &std::sync::OnceLock<Vec<f32>>, s: &str, cx: f32, y: f32, size: f32, color: [f32; 4]) -> Vec<Sprite> {
     let w = size * CELL_W as f32 / CELL_H as f32;
     // glyphs are drawn 4 px into their cell
-    let mut x = cx - width(s, size) * 0.5 - size * 4.0 / CELL_H as f32;
+    let mut x = cx - width_in(adv, s, size) * 0.5 - size * 4.0 / CELL_H as f32;
     let mut out = vec![];
     for ch in s.chars() {
         let Some(i) = CHARS.chars().position(|c| c == ch) else { continue };
@@ -93,14 +121,14 @@ pub fn text(s: &str, cx: f32, y: f32, size: f32, color: [f32; 4]) -> Vec<Sprite>
             let v0 = (row * CELL_H) as f32 / H as f32;
             let v1 = ((row + 1) * CELL_H) as f32 / H as f32;
             out.push(Sprite {
-                tex: "font",
+                tex,
                 additive: false,
                 pos: [[x, y, 0.], [x + w, y, 0.], [x + w, y + size, 0.], [x, y + size, 0.]],
                 uv: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]],
                 color,
             });
         }
-        x += advance(i) * size;
+        x += advance_in(adv, i) * size;
     }
     out
 }

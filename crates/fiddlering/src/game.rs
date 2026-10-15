@@ -161,6 +161,9 @@ pub struct Game {
     item_keys: [bool; 4],
     /// bosses whose health bar showed, a boss died and when the bars cleared
     boss_ptrs: HashSet<usize>,
+    /// each boss's name in the game's own language (its boss bar's text id, else its NpcParam name)
+    boss_names: HashMap<usize, String>,
+    boss_fmg: HashMap<usize, i32>,
     boss_died: bool,
     /// last strong (team 7) enemy we killed, last full-screen banner the game asked for, and its id
     strong_kill_at: f32,
@@ -398,6 +401,8 @@ impl Game {
             inv_open: None,
             item_keys: [false; 4],
             boss_ptrs: HashSet::new(),
+            boss_names: HashMap::new(),
+            boss_fmg: HashMap::new(),
             boss_died: false,
             strong_kill_at: -100.0,
             banner_at: -100.0,
@@ -803,6 +808,42 @@ impl Game {
         if let Some((p, b)) = boss {
             let frac = (b.hp as f32 / b.max_hp as f32).clamp(0.0, 1.0);
             let (x, y, w, h) = (510.0, 70.0, 900.0, 18.0);
+            // its name above, in the title serif: ivory-gold with a shadow, gold rules fading out to each side
+            if !self.boss_names.contains_key(&p) {
+                let c = chr_mut(p);
+                let npc_name = unsafe { eldenring::cs::SoloParamRepository::instance() }
+                    .ok()
+                    .and_then(|r| r.get::<eldenring::cs::NpcParam>(c.npc_param_id as u32).map(|n| n.name_id()));
+                let name = [self.boss_fmg.get(&p).copied(), npc_name].into_iter().flatten().filter(|id| *id > 0).find_map(npc_name_text);
+                log!("BOSS name: chr {} -> {:?}", c.character_id, name);
+                self.boss_names.insert(p, name.unwrap_or_default());
+            }
+            if let Some(name) = self.boss_names.get(&p).filter(|n| !n.is_empty()) {
+                let size = 30.0;
+                let ny = y - 44.0;
+                let tw = font::title_width(name, size);
+                let rule_y = ny + size * 0.55;
+                for side in [-1.0f32, 1.0] {
+                    let inner = 960.0 + side * (tw * 0.5 + 18.0);
+                    for k in 0..12 {
+                        let seg = 14.0;
+                        let x0 = inner + side * k as f32 * seg;
+                        let a = 0.85 * (1.0 - k as f32 / 12.0);
+                        scene.screen.push(rect(if side < 0.0 { x0 - seg } else { x0 }, rule_y, seg, 1.5, [0.85, 0.72, 0.45, a]));
+                    }
+                    let cx = inner;
+                    let s = 4.5;
+                    scene.screen.push(Sprite {
+                        tex: "white",
+                        additive: false,
+                        pos: [[cx, rule_y + 0.75 - s, 0.], [cx + s, rule_y + 0.75, 0.], [cx, rule_y + 0.75 + s, 0.], [cx - s, rule_y + 0.75, 0.]],
+                        uv: quad_uv(),
+                        color: [0.92, 0.80, 0.52, 1.0],
+                    });
+                }
+                scene.screen.extend(font::title_text(name, 962.0, ny + 2.0, size, [0.0, 0.0, 0.0, 0.85]));
+                scene.screen.extend(font::title_text(name, 960.0, ny, size, [0.97, 0.90, 0.72, 1.0]));
+            }
             // gold double frame and diamond end caps
             scene.screen.push(rect(x - 7.0, y - 7.0, w + 14.0, h + 14.0, [0.0, 0.0, 0.0, 0.75]));
             scene.screen.push(rect(x - 5.0, y - 5.0, w + 10.0, h + 10.0, [0.78, 0.67, 0.43, 1.0]));
@@ -2575,6 +2616,7 @@ impl Game {
             if let Some(c) = wcm.chr_ins_by_handle(&e.field_ins_handle) {
                 any_bar = true;
                 let p = c as *const ChrIns as usize;
+                self.boss_fmg.insert(p, e.fmg_id);
                 if self.boss_ptrs.insert(p) {
                     log!("BOSS bar: chr {} (fmg {})", c.character_id, e.fmg_id);
                 }
@@ -3069,4 +3111,53 @@ fn stat_icon(out: &mut Vec<Sprite>, icon: StatIcon, x: f32, y: f32, size: f32, c
 /// Like `wrap`, keeping a § title line as one line (its continuation is not a title).
 fn wrap_titled(text: &str, width: f32, size: f32) -> Vec<String> {
     text.lines().flat_map(|l| if l.starts_with('§') { vec![l.to_string()] } else { wrap(l, width, size) }).collect()
+}
+
+/// A name from Elden Ring's own text (NpcName, then the DLC's name tables), in the game's language. Calls the game's
+/// message lookup (MsgRepositoryImp, version 0, category, id), found once by its first bytes in the exe.
+fn npc_name_text(id: i32) -> Option<String> {
+    static SEARCH: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    // cmp edx,[rcx+10h]; jae; cmp r8d,[rcx+14h]; jae; mov rax,[rcx+8]
+    const SIG: &[u8] = &[0x3B, 0x51, 0x10, 0x73, 0x29, 0x44, 0x3B, 0x41, 0x14, 0x73, 0x23, 0x48, 0x8B, 0x41, 0x08];
+    let search = (*SEARCH.get_or_init(|| {
+        let (text, size) = exe_text()?;
+        let bytes = unsafe { std::slice::from_raw_parts(text as *const u8, size) };
+        let mut hits = bytes.windows(SIG.len()).enumerate().filter(|(_, w)| *w == SIG).map(|(i, _)| text + i);
+        let first = hits.next();
+        let unique = hits.next().is_none();
+        log!("game text lookup at {:?} (unique {unique})", first);
+        first.filter(|_| unique)
+    }))?;
+    let repo = unsafe { eldenring::cs::MsgRepositoryImp::instance() }.ok()? as *const eldenring::cs::MsgRepositoryImp as *mut std::ffi::c_void;
+    type Search = unsafe extern "C" fn(*mut std::ffi::c_void, u32, u32, i32) -> *const u16;
+    let f: Search = unsafe { std::mem::transmute(search) };
+    for cat in std::iter::once(18).chain(300..=340).chain(400..=440) {
+        let ptr = unsafe { f(repo, 0, cat, id) };
+        if ptr.is_null() {
+            continue;
+        }
+        let units: Vec<u16> = (0..256).map(|i| unsafe { ptr.add(i).read_unaligned() }).take_while(|&c| c != 0).collect();
+        let s = String::from_utf16_lossy(&units).trim().to_string();
+        if !s.is_empty() && !s.starts_with('?') && s != "[ERROR]" {
+            return Some(s);
+        }
+    }
+    None
+}
+
+/// eldenring.exe's .text section (address, size).
+fn exe_text() -> Option<(usize, usize)> {
+    let base = unsafe { windows::Win32::System::LibraryLoader::GetModuleHandleW(None) }.ok()?.0 as usize;
+    unsafe {
+        let nt = base + ((base + 0x3C) as *const u32).read_unaligned() as usize;
+        if (nt as *const u32).read_unaligned() != 0x4550 {
+            return None;
+        }
+        let count = ((nt + 6) as *const u16).read_unaligned() as usize;
+        let opt = ((nt + 20) as *const u16).read_unaligned() as usize;
+        let sections = nt + 24 + opt;
+        (0..count).map(|i| sections + i * 40).find(|&sec| std::slice::from_raw_parts(sec as *const u8, 5) == b".text").map(|sec| {
+            (base + ((sec + 12) as *const u32).read_unaligned() as usize, ((sec + 8) as *const u32).read_unaligned() as usize)
+        })
+    }
 }
