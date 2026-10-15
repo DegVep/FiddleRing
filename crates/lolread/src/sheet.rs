@@ -440,10 +440,10 @@ pub mod tuning {
     pub const BOSS_BURN_MULT: f32 = 0.25;
     /// his damage grows 5% per Scadutree Blessing level (Elden Ring: about 1.05x to 2x over 20 levels); his damage skips the game's own attack calculation, so the DLC ignored the blessing (/level)
     pub const BLESSING_DAMAGE: f32 = 0.05;
-    /// item slots: 1 up to this Elden Ring level, one more each item_slot_level_step levels, 6 at ~120 (six items fell in Limgrave: every field boss gives one). Rewards beyond the slots wait (owed_<save>.txt) (ER level)
-    pub const ITEM_SLOT_FIRST_LEVEL: f32 = 10.0;
-    /// see item_slot_first_level (ER levels)
-    pub const ITEM_SLOT_LEVEL_STEP: f32 = 22.0;
+    /// item slots open with his champion level (1-18): 1 slot up to this level, one more each item_slot_level_step levels, 6 at level 16 (creator: the champion level, not Elden Ring's). Rewards beyond the slots wait (owed_<save>.txt) (level)
+    pub const ITEM_SLOT_FIRST_LEVEL: f32 = 1.0;
+    /// see item_slot_first_level (levels)
+    pub const ITEM_SLOT_LEVEL_STEP: f32 = 3.0;
     /// Reap (E) builds up frostbite: the game's SpEffect whose frost buildup is closest to this (a frost weapon builds ~60-90 a hit); resistance and the proc are Elden Ring's (creator's request) (buildup)
     pub const E_FROST_BUILDUP: f32 = 60.0;
     /// every ability (Q/W/E/R) builds up madness: the game's SpEffect closest to this; only creatures Elden Ring lets go mad (people, mostly) react (creator's request) (buildup)

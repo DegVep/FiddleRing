@@ -328,14 +328,14 @@
     },
     {
       "id": "item_slot_first_level",
-      "value": 10.0,
-      "unit": "ER level",
-      "why": "item slots: 1 up to this Elden Ring level, one more each item_slot_level_step levels, 6 at ~120 (six items fell in Limgrave: every field boss gives one). Rewards beyond the slots wait (owed_<save>.txt)"
+      "value": 1.0,
+      "unit": "level",
+      "why": "item slots open with his champion level (1-18): 1 slot up to this level, one more each item_slot_level_step levels, 6 at level 16 (creator: the champion level, not Elden Ring's). Rewards beyond the slots wait (owed_<save>.txt)"
     },
     {
       "id": "item_slot_level_step",
-      "value": 22.0,
-      "unit": "ER levels",
+      "value": 3.0,
+      "unit": "levels",
       "why": "see item_slot_first_level"
     },
     {

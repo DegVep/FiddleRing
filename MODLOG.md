@@ -80,3 +80,4 @@ Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches E
 - 2026-10-15: stats box movement speed = his measured speed (self.speed, m/s smoothed) / range_scale in League units: changes walking / running / sprinting, 0 standing.
 - 2026-10-15: HUD: "ER <level>" badge beside his level on the portrait; locked item slots read "ER<level>".
 - 2026-10-15: reverted (creator): movement speed back to base x items x W slow; ER level badge removed, locked slots read "Nv" again.
+- 2026-10-15: item slots now open with his champion level (creator): 1, then levels 4/7/10/13/16 (item_slot_first_level 1, step 3); locked slots show "Nv<level>".

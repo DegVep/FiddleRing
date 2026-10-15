@@ -2834,7 +2834,7 @@ impl Game {
             if self.items.len() < 6 {
                 self.owed_offers += 1;
                 self.save_owed();
-                log!("ITEM reward kept for later ({} owed, {} slot(s) at ER level {})", self.owed_offers, self.item_slots(), self.er_level);
+                log!("ITEM reward kept for later ({} owed, {} slot(s) at level {})", self.owed_offers, self.item_slots(), self.level);
             }
             return;
         }
@@ -3064,9 +3064,9 @@ impl Game {
         }
     }
 
-    /// Item slots open with the Tarnished's level: 1 at the start, 6 by about level 120.
+    /// Item slots open with his champion level: 1 at the start, then one every few levels (6 at 16).
     fn item_slots(&self) -> usize {
-        let past = self.er_level.saturating_sub(tuning::ITEM_SLOT_FIRST_LEVEL as u32) as f32;
+        let past = self.level.saturating_sub(tuning::ITEM_SLOT_FIRST_LEVEL as u32) as f32;
         (1 + (past / tuning::ITEM_SLOT_LEVEL_STEP).floor() as usize).clamp(1, 6)
     }
 
@@ -3144,7 +3144,7 @@ impl Game {
                 out.push(rect(x - 1.0, y - 1.0, 34.0, 34.0, gold_dim, "white"));
                 out.push(rect(x, y, 32.0, 32.0, [0.02, 0.03, 0.04, 1.0], "white"));
                 if i >= self.item_slots() && i >= self.items.len() {
-                    // locked: the Elden Ring level that opens it
+                    // locked: the champion level that opens it
                     let need = tuning::ITEM_SLOT_FIRST_LEVEL + i as f32 * tuning::ITEM_SLOT_LEVEL_STEP;
                     out.push(rect(x, y, 32.0, 32.0, [0.0, 0.0, 0.0, 0.6], "white"));
                     label(out, &format!("Nv{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
