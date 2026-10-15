@@ -164,6 +164,11 @@ pub struct Game {
     item_keys: [bool; 4],
     /// bosses whose health bar showed, a boss died and when the bars cleared
     boss_ptrs: HashSet<usize>,
+    /// the Tarnished's level and Scadutree Blessing, read each frame
+    er_level: u32,
+    blessing: u8,
+    /// boss rewards waiting for a free item slot (slots open with the Elden Ring level)
+    owed_offers: u32,
     /// each boss's name in the game's own language (its boss bar's text id, else its NpcParam name)
     boss_names: HashMap<usize, String>,
     boss_fmg: HashMap<usize, i32>,
@@ -406,6 +411,9 @@ impl Game {
             inv_open: None,
             item_keys: [false; 4],
             boss_ptrs: HashSet::new(),
+            er_level: 1,
+            blessing: 0,
+            owed_offers: 0,
             boss_names: HashMap::new(),
             boss_fmg: HashMap::new(),
             boss_died: false,
@@ -583,6 +591,7 @@ impl Game {
             self.boss_died = true;
             log!("owed boss reward: the item choice opens");
         }
+        self.owed_offers = std::fs::read_to_string(owed_path(&key)).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
         self.save_key = Some(key);
         self.dirty = true;
         self.save();
@@ -661,6 +670,7 @@ impl Game {
                 self.fx.burst("items", "amp", add(ch.pos, [0.0, ch.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
             }
         }
+        amount *= 1.0 + tuning::BLESSING_DAMAGE * self.blessing as f32;
         let c = chr_mut(ch.ptr);
         // his abilities and burns are magic damage: the enemy's magic resistance, less his penetration
         let mr = self.enemy_mr(c, ch.ptr);
@@ -967,6 +977,8 @@ impl Game {
         // whose progress: the loaded save slot and the character's name
         {
             let pgd = unsafe { player.player_game_data.as_ref() };
+            self.er_level = pgd.level;
+            self.blessing = pgd.scadutree_blessing;
             let name: String = String::from_utf16_lossy(&pgd.character_name).trim_end_matches('\0').chars().filter(|c| c.is_alphanumeric()).collect();
             let slot = unsafe { eldenring::cs::GameMan::instance() }.map(|g| g.save_slot).unwrap_or(-1);
             let key = format!("{slot}_{name}");
@@ -1074,7 +1086,8 @@ impl Game {
                     self.strong_kill_at = self.clock;
                     log!("strong enemy killed: chr {} (max hp {max_hp})", chr_mut(p).character_id);
                 }
-                xp_gain += (max_hp as f32 * tuning::XP_PER_ENEMY_HP).clamp(tuning::XP_MIN, tuning::XP_MAX);
+                let kind = if self.boss_fmg.contains_key(&p) { tuning::XP_BOSS_MULT } else if chr_mut(p).team_type == 7 { tuning::XP_STRONG_MULT } else { 1.0 };
+                xp_gain += ((max_hp.max(0) as f32).sqrt() * tuning::XP_PER_SQRT_HP * kind).clamp(tuning::XP_MIN, tuning::XP_MAX);
                 kills += 1;
             }
         }
@@ -1645,7 +1658,7 @@ impl Game {
             } else {
                 let feared = self.cc.iter().any(|c| c.ptr == t.ptr && c.fear && c.until > self.clock);
                 let cur = chr_mut(t.ptr).modules.data.hp as f32;
-                let pct = val(&self.c, 1, "MaxHealthDamage", m.rank) + 0.0003 * ap;
+                let pct = (val(&self.c, 1, "MaxHealthDamage", m.rank) + tuning::Q_AP_PCT * ap) * self.pct_mult(t.ptr);
                 let mut dmg = (pct * cur).max(val(&self.c, 1, "MinimumDamage", m.rank));
                 if feared {
                     dmg *= 2.0;
@@ -1698,7 +1711,7 @@ impl Game {
             for t in &alive {
                 let mut dmg = per;
                 if finished {
-                    dmg += val(&self.c, 2, "PercentMultiplier", d.rank) * (t.max_hp - t.hp).max(0) as f32;
+                    dmg += val(&self.c, 2, "PercentMultiplier", d.rank) * (t.max_hp - t.hp).max(0) as f32 * self.pct_mult(t.ptr);
                 }
                 healed += self.damage(*t, dmg, "W") * vamp;
                 if !fx_now {
@@ -2751,7 +2764,7 @@ impl Game {
             if e.fmg_id <= 0 {
                 continue;
             }
-            if let Some(c) = wcm.chr_ins_by_handle(&e.field_ins_handle) {
+            if let Some(c) = wcm.chr_ins_by_handle(&e.field_ins_handle).filter(|c| c.modules.data.hp > 0) {
                 any_bar = true;
                 let p = c as *const ChrIns as usize;
                 self.boss_fmg.insert(p, e.fmg_id);
@@ -2786,7 +2799,15 @@ impl Game {
 
     /// Three items not owned yet, picked at random.
     fn offer_items(&mut self) {
-        if self.items.len() >= 6 || self.offer.is_some() {
+        if self.offer.is_some() {
+            return;
+        }
+        if self.items.len() >= self.item_slots() {
+            if self.items.len() < 6 {
+                self.owed_offers += 1;
+                self.save_owed();
+                log!("ITEM reward kept for later ({} owed, {} slot(s) at ER level {})", self.owed_offers, self.item_slots(), self.er_level);
+            }
             return;
         }
         let mut pool: Vec<u32> = sheet::ITEMS.iter().map(|r| r.id).filter(|id| !self.items.contains(id) && self.item_info(*id).is_some()).collect();
@@ -2812,6 +2833,12 @@ impl Game {
         let keys = [VK_F3, VK_LEFT, VK_RIGHT, VK_RETURN].map(|k| focused && key_down(k.0 as i32));
         let pressed: Vec<bool> = (0..4).map(|i| keys[i] && !self.item_keys[i]).collect();
         self.item_keys = keys;
+        if self.owed_offers > 0 && self.offer.is_none() && self.items.len() < self.item_slots() && self.save_key.is_some() {
+            self.owed_offers -= 1;
+            self.save_owed();
+            log!("ITEM owed reward opens ({} left)", self.owed_offers);
+            self.offer_items();
+        }
         if self.test && self.clock > 70.0 && self.items.is_empty() && self.offer.is_none() {
             self.offer_items(); // test runs show the choice without a boss
         }
@@ -3009,6 +3036,26 @@ impl Game {
         }
     }
 
+    /// Item slots open with the Tarnished's level: 1 at the start, 6 by about level 120.
+    fn item_slots(&self) -> usize {
+        let past = self.er_level.saturating_sub(tuning::ITEM_SLOT_FIRST_LEVEL as u32) as f32;
+        (1 + (past / tuning::ITEM_SLOT_LEVEL_STEP).floor() as usize).clamp(1, 6)
+    }
+
+    fn save_owed(&self) {
+        if let Some(key) = &self.save_key {
+            if !self.test {
+                let _ = std::fs::write(owed_path(key), self.owed_offers.to_string());
+            }
+        }
+    }
+
+    /// Bosses take a share of his %-health damage (Q, W's last tick): League caps it on monsters too, and without
+    /// it a 30 000 HP boss falls as fast as a 4 000 HP one.
+    fn pct_mult(&self, ptr: usize) -> f32 {
+        if self.boss_ptrs.contains(&ptr) { tuning::BOSS_PCT_MULT } else { 1.0 }
+    }
+
     /// Item burns: a share of the target's max HP per second while they last.
     fn update_burns(&mut self, dt: f32) {
         let clock = self.clock;
@@ -3018,7 +3065,8 @@ impl Game {
             if !alive.contains(&b.0) || b.1 <= clock {
                 continue;
             }
-            b.3 += b.2 * chr_mut(b.0).modules.data.max_hp as f32 * dt;
+            let on_boss = if self.boss_ptrs.contains(&b.0) { tuning::BOSS_BURN_MULT } else { 1.0 };
+            b.3 += b.2 * on_boss * chr_mut(b.0).modules.data.max_hp as f32 * dt;
             if b.3 >= 1.0 {
                 hits.push((b.0, b.3));
                 b.3 = 0.0;
@@ -3067,6 +3115,12 @@ impl Game {
                 let (x, y) = (h.x + (i % 3) as f32 * 36.0, h.y + (i / 3) as f32 * 36.0);
                 out.push(rect(x - 1.0, y - 1.0, 34.0, 34.0, gold_dim, "white"));
                 out.push(rect(x, y, 32.0, 32.0, [0.02, 0.03, 0.04, 1.0], "white"));
+                if i >= self.item_slots() && i >= self.items.len() {
+                    // locked: the Elden Ring level that opens it
+                    let need = tuning::ITEM_SLOT_FIRST_LEVEL + i as f32 * tuning::ITEM_SLOT_LEVEL_STEP;
+                    out.push(rect(x, y, 32.0, 32.0, [0.0, 0.0, 0.0, 0.6], "white"));
+                    label(out, &format!("Nv{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
+                }
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
                     if sheet::ITEMS.iter().any(|r| r.id == id && r.effect == "stasis") {
@@ -3315,4 +3369,8 @@ fn fiddle_on() -> bool {
 
 fn mode_path() -> std::path::PathBuf {
     crate::log::data_dir().join("mode.txt")
+}
+
+fn owed_path(key: &str) -> std::path::PathBuf {
+    crate::log::data_dir().join(format!("owed_{key}.txt"))
 }

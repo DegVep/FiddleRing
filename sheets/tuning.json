@@ -22,9 +22,9 @@
     },
     {
       "id": "ap_per_rune_level",
-      "value": 4.0,
+      "value": 2.0,
       "unit": "ability power per Elden Ring level above 1",
-      "why": "levelling at graces still matters: level 50 -> 196 AP, level 150 -> 596 AP"
+      "why": "levelling at graces still matters: level 50 -> 196 AP, level 150 -> 596 AP; 4 -> 2 (balance pass: 150 ER levels gave 600 AP on top of six items, ~1250 AP late)"
     },
     {
       "id": "damage_scale",
@@ -33,20 +33,14 @@
       "why": "League damage against Elden Ring HP is already close (Limgrave soldier ~150 HP vs Q 40-120)"
     },
     {
-      "id": "xp_per_enemy_hp",
-      "value": 0.35,
-      "unit": "xp per max HP of a killed enemy",
-      "why": "a Limgrave soldier (~200 HP) gives 70 XP, like a League minion wave share"
-    },
-    {
       "id": "xp_min",
-      "value": 20.0,
+      "value": 5.0,
       "unit": "xp",
       "why": "weak critters still count"
     },
     {
       "id": "xp_max",
-      "value": 1500.0,
+      "value": 2000.0,
       "unit": "xp",
       "why": "a boss is worth about a level"
     },
@@ -289,6 +283,60 @@
       "value": 3.0,
       "unit": "m",
       "why": "same when he drops this much below the start (jumped off a ledge)"
+    },
+    {
+      "id": "xp_per_sqrt_hp",
+      "value": 0.45,
+      "unit": "xp",
+      "why": "XP for a kill = this x sqrt(its max HP) (balance pass): health grows ~15x from Limgrave to the Haligtree, XP ~4x; level ~6 after Limgrave, ~13 after Altus, 18 in the late game (was 0.35 x HP: 18 before leaving Limgrave)"
+    },
+    {
+      "id": "xp_boss_mult",
+      "value": 6.0,
+      "unit": "x",
+      "why": "XP of a boss (one with a boss bar)"
+    },
+    {
+      "id": "xp_strong_mult",
+      "value": 2.0,
+      "unit": "x",
+      "why": "XP of a strong enemy (team 7)"
+    },
+    {
+      "id": "q_ap_pct",
+      "value": 0.0002,
+      "unit": "/AP",
+      "why": "Terrify's share of current health per AP: League's 2% per 100 AP (was 0.0003, the main reason late bosses fell in seconds)"
+    },
+    {
+      "id": "boss_pct_mult",
+      "value": 0.2,
+      "unit": "x",
+      "why": "share of his %-health damage (Q, W's final tick) a boss takes; League caps those on monsters (W: 400). Simulated: Margit ~60 s, Radahn ~50 s, Malenia ~50 s of uptime (were 38 / 22 / 13 s)"
+    },
+    {
+      "id": "boss_burn_mult",
+      "value": 0.25,
+      "unit": "x",
+      "why": "share of Liandry's / Blackfire's max-health burn a boss takes (2%/s for all of a fight killed any boss in under a minute)"
+    },
+    {
+      "id": "blessing_damage",
+      "value": 0.05,
+      "unit": "/level",
+      "why": "his damage grows 5% per Scadutree Blessing level (Elden Ring: about 1.05x to 2x over 20 levels); his damage skips the game's own attack calculation, so the DLC ignored the blessing"
+    },
+    {
+      "id": "item_slot_first_level",
+      "value": 10.0,
+      "unit": "ER level",
+      "why": "item slots: 1 up to this Elden Ring level, one more each item_slot_level_step levels, 6 at ~120 (six items fell in Limgrave: every field boss gives one). Rewards beyond the slots wait (owed_<save>.txt)"
+    },
+    {
+      "id": "item_slot_level_step",
+      "value": 22.0,
+      "unit": "ER levels",
+      "why": "see item_slot_first_level"
     }
   ]
 }

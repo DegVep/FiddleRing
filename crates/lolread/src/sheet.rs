@@ -336,16 +336,14 @@ pub mod tuning {
     pub const MODEL_SCALE: f32 = 0.0055;
     /// League ranges feel short against Elden Ring enemies; AA 480 -> 5.8 m, E 850 -> 10.2 m (m per League unit)
     pub const RANGE_SCALE: f32 = 0.012;
-    /// levelling at graces still matters: level 50 -> 196 AP, level 150 -> 596 AP (ability power per Elden Ring level above 1)
-    pub const AP_PER_RUNE_LEVEL: f32 = 4.0;
+    /// levelling at graces still matters: level 50 -> 196 AP, level 150 -> 596 AP; 4 -> 2 (balance pass: 150 ER levels gave 600 AP on top of six items, ~1250 AP late) (ability power per Elden Ring level above 1)
+    pub const AP_PER_RUNE_LEVEL: f32 = 2.0;
     /// League damage against Elden Ring HP is already close (Limgrave soldier ~150 HP vs Q 40-120) (x)
     pub const DAMAGE_SCALE: f32 = 1.0;
-    /// a Limgrave soldier (~200 HP) gives 70 XP, like a League minion wave share (xp per max HP of a killed enemy)
-    pub const XP_PER_ENEMY_HP: f32 = 0.35;
     /// weak critters still count (xp)
-    pub const XP_MIN: f32 = 20.0;
+    pub const XP_MIN: f32 = 5.0;
     /// a boss is worth about a level (xp)
-    pub const XP_MAX: f32 = 1500.0;
+    pub const XP_MAX: f32 = 2000.0;
     /// without lock-on, basic attacks and Terror pick the nearest enemy in front of the camera (degrees)
     pub const AA_CONE_DEG: f32 = 75.0;
     /// crow bolts visibly travel (m/s)
@@ -426,4 +424,22 @@ pub mod tuning {
     pub const R_LEAP_MAX_RISE: f32 = 1.2;
     /// same when he drops this much below the start (jumped off a ledge) (m)
     pub const R_LEAP_MAX_DROP: f32 = 3.0;
+    /// XP for a kill = this x sqrt(its max HP) (balance pass): health grows ~15x from Limgrave to the Haligtree, XP ~4x; level ~6 after Limgrave, ~13 after Altus, 18 in the late game (was 0.35 x HP: 18 before leaving Limgrave) (xp)
+    pub const XP_PER_SQRT_HP: f32 = 0.45;
+    /// XP of a boss (one with a boss bar) (x)
+    pub const XP_BOSS_MULT: f32 = 6.0;
+    /// XP of a strong enemy (team 7) (x)
+    pub const XP_STRONG_MULT: f32 = 2.0;
+    /// Terrify's share of current health per AP: League's 2% per 100 AP (was 0.0003, the main reason late bosses fell in seconds) (/AP)
+    pub const Q_AP_PCT: f32 = 0.0002;
+    /// share of his %-health damage (Q, W's final tick) a boss takes; League caps those on monsters (W: 400). Simulated: Margit ~60 s, Radahn ~50 s, Malenia ~50 s of uptime (were 38 / 22 / 13 s) (x)
+    pub const BOSS_PCT_MULT: f32 = 0.2;
+    /// share of Liandry's / Blackfire's max-health burn a boss takes (2%/s for all of a fight killed any boss in under a minute) (x)
+    pub const BOSS_BURN_MULT: f32 = 0.25;
+    /// his damage grows 5% per Scadutree Blessing level (Elden Ring: about 1.05x to 2x over 20 levels); his damage skips the game's own attack calculation, so the DLC ignored the blessing (/level)
+    pub const BLESSING_DAMAGE: f32 = 0.05;
+    /// item slots: 1 up to this Elden Ring level, one more each item_slot_level_step levels, 6 at ~120 (six items fell in Limgrave: every field boss gives one). Rewards beyond the slots wait (owed_<save>.txt) (ER level)
+    pub const ITEM_SLOT_FIRST_LEVEL: f32 = 10.0;
+    /// see item_slot_first_level (ER levels)
+    pub const ITEM_SLOT_LEVEL_STEP: f32 = 22.0;
 }
