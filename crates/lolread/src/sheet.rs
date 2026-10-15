@@ -442,4 +442,10 @@ pub mod tuning {
     pub const ITEM_SLOT_FIRST_LEVEL: f32 = 10.0;
     /// see item_slot_first_level (ER levels)
     pub const ITEM_SLOT_LEVEL_STEP: f32 = 22.0;
+    /// Reap (E) builds up frostbite: the game's SpEffect whose frost buildup is closest to this (a frost weapon builds ~60-90 a hit); resistance and the proc are Elden Ring's (creator's request) (buildup)
+    pub const E_FROST_BUILDUP: f32 = 60.0;
+    /// every ability (Q/W/E/R) builds up madness: the game's SpEffect closest to this; only creatures Elden Ring lets go mad (people, mostly) react (creator's request) (buildup)
+    pub const MADNESS_BUILDUP: f32 = 30.0;
+    /// madness builds up at most this often per target (W and R hit many times a second) (s)
+    pub const MADNESS_INTERVAL: f32 = 0.5;
 }

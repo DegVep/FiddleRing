@@ -164,6 +164,8 @@ pub struct Game {
     item_keys: [bool; 4],
     /// bosses whose health bar showed, a boss died and when the bars cleared
     boss_ptrs: HashSet<usize>,
+    /// last madness buildup per target (clock): channels and storms hit many times a second
+    madness_at: HashMap<usize, f32>,
     /// the Tarnished's level and Scadutree Blessing, read each frame
     er_level: u32,
     blessing: u8,
@@ -411,6 +413,7 @@ impl Game {
             inv_open: None,
             item_keys: [false; 4],
             boss_ptrs: HashSet::new(),
+            madness_at: HashMap::new(),
             er_level: 1,
             blessing: 0,
             owed_offers: 0,
@@ -691,6 +694,16 @@ impl Game {
         };
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
+        if new > 0 && matches!(what, "Q" | "W" | "E" | "R") {
+            if what == "E" {
+                apply_status(c, Status::Frost);
+            }
+            let last = self.madness_at.get(&ch.ptr).copied().unwrap_or(-100.0);
+            if self.clock - last >= tuning::MADNESS_INTERVAL {
+                self.madness_at.insert(ch.ptr, self.clock);
+                apply_status(c, Status::Madness);
+            }
+        }
         if let Some(w) = self.wounded.get_mut(&ch.ptr) {
             w.1 = new;
         }
@@ -3373,4 +3386,55 @@ fn mode_path() -> std::path::PathBuf {
 
 fn owed_path(key: &str) -> std::path::PathBuf {
     crate::log::data_dir().join(format!("owed_{key}.txt"))
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Status {
+    Frost,
+    Madness,
+}
+
+/// Status buildup the game's own way: one of Elden Ring's SpEffects that only builds up frostbite (or madness) is
+/// applied to the target, so its resistance, the proc and its effects are the game's. The row is found once, the one
+/// whose buildup is closest to the sheet's (e_frost_buildup, madness_buildup) with no damage or other status.
+fn apply_status(c: &mut ChrIns, kind: Status) {
+    use eldenring::cs::ChrInsExt;
+    static FROST: std::sync::OnceLock<Option<i32>> = std::sync::OnceLock::new();
+    static MADNESS: std::sync::OnceLock<Option<i32>> = std::sync::OnceLock::new();
+    let (cell, want) = match kind {
+        Status::Frost => (&FROST, tuning::E_FROST_BUILDUP),
+        Status::Madness => (&MADNESS, tuning::MADNESS_BUILDUP),
+    };
+    let found = *cell.get_or_init(|| {
+        let repo = unsafe { eldenring::cs::SoloParamRepository::instance() }.ok()?;
+        let best = repo
+            .rows::<eldenring::cs::SpEffectParam>()
+            .filter(|(_, r)| {
+                let (f, m) = (r.freeze_attack_power(), r.madness_attack_power());
+                let only = match kind {
+                    Status::Frost => f > 0 && m == 0,
+                    Status::Madness => m > 0 && f == 0,
+                };
+                only && r.poizon_attack_power() == 0
+                    && r.disease_attack_power() == 0
+                    && r.blood_attack_power() == 0
+                    && r.curse_attack_power() == 0
+                    && r.sleep_attack_power() == 0
+                    && r.change_hp_rate() == 0.0
+                    && r.change_hp_point() == 0
+                    && r.physics_attack_power() == 0
+                    && r.magic_attack_power() == 0
+                    && r.fire_attack_power() == 0
+                    && r.thunder_attack_power() == 0
+                    && r.dark_attack_power() == 0
+                    && (0.0..=0.1).contains(&r.effect_endurance())
+            })
+            .map(|(id, r)| (id, if kind == Status::Frost { r.freeze_attack_power() } else { r.madness_attack_power() }))
+            .min_by_key(|(_, v)| (*v as f32 - want).abs() as i32);
+        log!("status {}: SpEffect {:?}", if kind == Status::Frost { "frost" } else { "madness" }, best);
+        best.map(|(id, _)| id as i32)
+    });
+    if let Some(id) = found {
+        c.apply_speffect(id, false);
+    }
 }

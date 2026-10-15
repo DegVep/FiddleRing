@@ -337,6 +337,24 @@
       "value": 22.0,
       "unit": "ER levels",
       "why": "see item_slot_first_level"
+    },
+    {
+      "id": "e_frost_buildup",
+      "value": 60.0,
+      "unit": "buildup",
+      "why": "Reap (E) builds up frostbite: the game's SpEffect whose frost buildup is closest to this (a frost weapon builds ~60-90 a hit); resistance and the proc are Elden Ring's (creator's request)"
+    },
+    {
+      "id": "madness_buildup",
+      "value": 30.0,
+      "unit": "buildup",
+      "why": "every ability (Q/W/E/R) builds up madness: the game's SpEffect closest to this; only creatures Elden Ring lets go mad (people, mostly) react (creator's request)"
+    },
+    {
+      "id": "madness_interval",
+      "value": 0.5,
+      "unit": "s",
+      "why": "madness builds up at most this often per target (W and R hit many times a second)"
     }
   ]
 }
