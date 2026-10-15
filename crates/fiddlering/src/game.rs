@@ -117,7 +117,8 @@ struct Drain {
 enum Ult {
     Channel { t: f32, rank: u32, target: Option<usize> },
     /// the jump after the channel
-    Leap { t: f32, rank: u32, from: V3, to: V3 },
+    /// `last`: where it put him last frame; `safe`: the last spot the game kept him on the ground
+    Leap { t: f32, rank: u32, from: V3, to: V3, last: V3, safe: V3 },
     Storm { t: f32, tick: f32, rank: u32 },
 }
 
@@ -1590,26 +1591,48 @@ impl Game {
                     }
                     self.anim.play("r_channel", true);
                     log!("R leap {:?} -> {:?}", me.pos, to);
-                    Some(Ult::Leap { t: 0.0, rank, from: me.pos, to })
+                    Some(Ult::Leap { t: 0.0, rank, from: me.pos, to, last: me.pos, safe: me.pos })
                 }
             }
-            Ult::Leap { t, rank, from, to } => {
+            Ult::Leap { t, rank, from, to, last, mut safe } => {
                 let player = chr_mut(player_ptr);
                 let t = t + dt;
                 let f = (t / tuning::R_LEAP_TIME).min(1.0);
                 // ease out: a fast launch that settles; x/z only, the game keeps him on the ground
                 let e = 1.0 - (1.0 - f) * (1.0 - f);
                 let ph = &mut player.modules.physics;
-                ph.position.0 = from[0] + (to[0] - from[0]) * e;
-                ph.position.2 = from[2] + (to[2] - from[2]) * e;
-                ph.chr_proxy_pos_update_requested = true;
-                self.fx.stream("r_crowstorm", "r_leap", 2, add(me.pos, [0.0, 1.0 + self.leap_lift(), 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
-                if f < 1.0 {
-                    Some(Ult::Leap { t, rank, from, to })
-                } else {
-                    self.fx.burst("r_crowstorm", "r_land", me.pos, [0.0, 1.0, 0.0], 0.0);
+                // what the game did with last frame's spot: pushed out of a wall or rock (it flings him up),
+                // or dropped him off a ledge -> the jump stops where he still stood
+                let pushed = flat(sub(me.pos, last)) > tuning::R_LEAP_PUSHBACK;
+                let dy = me.pos[1] - from[1];
+                let thrown = dy > tuning::R_LEAP_MAX_RISE || dy < -tuning::R_LEAP_MAX_DROP;
+                if pushed || thrown {
+                    log!("R leap stopped: {} at {:?} (safe {:?})", if thrown { "thrown off the ground" } else { "blocked" }, me.pos, safe);
+                    if thrown {
+                        ph.position.0 = safe[0];
+                        ph.position.1 = safe[1];
+                        ph.position.2 = safe[2];
+                        ph.chr_proxy_pos_update_requested = true;
+                    }
+                    self.fx.burst("r_crowstorm", "r_land", safe, [0.0, 1.0, 0.0], 0.0);
                     self.sound("sfx_r_storm");
                     Some(Ult::Storm { t: 0.0, tick: 0.0, rank })
+                } else {
+                    if (me.pos[1] - last[1]).abs() < 0.35 && dy.abs() < 1.5 {
+                        safe = me.pos;
+                    }
+                    let next = [from[0] + (to[0] - from[0]) * e, me.pos[1], from[2] + (to[2] - from[2]) * e];
+                    ph.position.0 = next[0];
+                    ph.position.2 = next[2];
+                    ph.chr_proxy_pos_update_requested = true;
+                    self.fx.stream("r_crowstorm", "r_leap", 2, add(me.pos, [0.0, 1.0 + self.leap_lift(), 0.0]), [0.0, 1.0, 0.0], 0.0, dt);
+                    if f < 1.0 {
+                        Some(Ult::Leap { t, rank, from, to, last: next, safe })
+                    } else {
+                        self.fx.burst("r_crowstorm", "r_land", me.pos, [0.0, 1.0, 0.0], 0.0);
+                        self.sound("sfx_r_storm");
+                        Some(Ult::Storm { t: 0.0, tick: 0.0, rank })
+                    }
                 }
             }
             Ult::Storm { t, tick, rank } => {

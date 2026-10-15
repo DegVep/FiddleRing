@@ -271,6 +271,24 @@
       "value": 3.0,
       "unit": "s",
       "why": "this long without dealing damage ends combat: Liandry's and Riftmaker's stacking damage starts over"
+    },
+    {
+      "id": "r_leap_pushback",
+      "value": 0.6,
+      "unit": "m",
+      "why": "the R jump stops when the game moved him this far from where the jump put him last frame (a wall or rock in the way)"
+    },
+    {
+      "id": "r_leap_max_rise",
+      "value": 1.2,
+      "unit": "m",
+      "why": "the R jump stops and puts him back on the last ground he stood on when he rises this much above the start (the game flinging him out of geometry; he flew off the map)"
+    },
+    {
+      "id": "r_leap_max_drop",
+      "value": 3.0,
+      "unit": "m",
+      "why": "same when he drops this much below the start (jumped off a ledge)"
     }
   ]
 }

@@ -420,4 +420,10 @@ pub mod tuning {
     pub const W_TICK_INTERVAL: f32 = 0.05;
     /// this long without dealing damage ends combat: Liandry's and Riftmaker's stacking damage starts over (s)
     pub const COMBAT_TIMEOUT: f32 = 3.0;
+    /// the R jump stops when the game moved him this far from where the jump put him last frame (a wall or rock in the way) (m)
+    pub const R_LEAP_PUSHBACK: f32 = 0.6;
+    /// the R jump stops and puts him back on the last ground he stood on when he rises this much above the start (the game flinging him out of geometry; he flew off the map) (m)
+    pub const R_LEAP_MAX_RISE: f32 = 1.2;
+    /// same when he drops this much below the start (jumped off a ledge) (m)
+    pub const R_LEAP_MAX_DROP: f32 = 3.0;
 }
