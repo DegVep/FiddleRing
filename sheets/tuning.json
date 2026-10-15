@@ -259,6 +259,12 @@
       "value": 60.0,
       "unit": "MR",
       "why": "same for bosses: 63%; Void Staff's 40% pen brings it to 74%"
+    },
+    {
+      "id": "w_tick_interval",
+      "value": 0.05,
+      "unit": "s",
+      "why": "Bountiful Harvest hits this often for the same damage per second (creator: smaller hits, more often); its effects keep League's TicksPerSecond"
     }
   ]
 }

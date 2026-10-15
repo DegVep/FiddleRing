@@ -109,6 +109,8 @@ struct Drain {
     targets: Vec<usize>,
     t: f32,
     tick: f32,
+    /// effects keep League's own tick rate
+    fx_tick: f32,
     rank: u32,
 }
 
@@ -145,7 +147,9 @@ pub struct Game {
     /// hostiles near him this frame, for their health bars
     hostile_ptrs: Vec<usize>,
     /// health bar damage trails: (shown share, last hit clock) per character
-    bar_trails: HashMap<usize, (f32, f32)>,
+    bar_trails: HashMap<usize, (f32, f32, f32)>,
+    /// W's leftover fractional damage per target
+    dmg_carry: HashMap<usize, f32>,
     /// ability power this frame (runes + items), for the stats box
     ap_total: f32,
     /// League items owned (ids), offered three at a time when a boss dies
@@ -372,6 +376,7 @@ impl Game {
             save_key: None,
             hostile_ptrs: vec![],
             bar_trails: HashMap::new(),
+            dmg_carry: HashMap::new(),
             ap_total: 0.0,
             items: vec![],
             offer: None,
@@ -602,11 +607,21 @@ impl Game {
         if matches!(what, "Q" | "W" | "E" | "R" | "BURN") {
             amount *= if mr >= 0.0 { 100.0 / (100.0 + mr) } else { 2.0 - 100.0 / (100.0 - mr) };
         }
-        let dmg = (amount * tuning::DAMAGE_SCALE).max(1.0).round() as i32;
+        let dmg = if what == "W" {
+            // many tiny hits: the fraction left over carries to the next one
+            let carry = self.dmg_carry.entry(ch.ptr).or_insert(0.0);
+            let f = amount * tuning::DAMAGE_SCALE + *carry;
+            *carry = f - f.floor();
+            f.floor() as i32
+        } else {
+            (amount * tuning::DAMAGE_SCALE).max(1.0).round() as i32
+        };
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
         self.damaged.insert(ch.ptr, c.modules.data.max_hp);
-        log!("HIT {what} chr={} team={} hp {hp}->{new} ({dmg}, mr after pen {mr:.0})", c.character_id, c.team_type);
+        if what != "W" || new == 0 {
+            log!("HIT {what} chr={} team={} hp {hp}->{new} ({dmg}, mr after pen {mr:.0})", c.character_id, c.team_type);
+        }
         (hp - new) as f32
     }
 
@@ -671,15 +686,18 @@ impl Game {
         let dt = self.dt;
         let clock = self.clock;
         // one bar: rim, dark well, damage trail, gradient fill, top sheen, 10% ticks
-        let draw_bar = |out: &mut Vec<Sprite>, trails: &mut HashMap<usize, (f32, f32)>, key: usize, x: f32, y: f32, w: f32, h: f32, frac: f32, alpha: f32| {
-            let tr = trails.entry(key).or_insert((frac, clock));
+        let draw_bar = |out: &mut Vec<Sprite>, trails: &mut HashMap<usize, (f32, f32, f32)>, key: usize, x: f32, y: f32, w: f32, h: f32, frac: f32, alpha: f32| {
+            let tr = trails.entry(key).or_insert((frac, clock, frac));
+            // the fill glides to the real health instead of jumping on each hit
+            tr.2 += (frac - tr.2) * (1.0 - (-18.0 * dt).exp());
             if frac >= tr.0 {
-                *tr = (frac, clock);
+                *tr = (frac, clock, tr.2);
             } else if clock - tr.1 > 0.45 {
-                // the trail waits a moment after a hit, then drains
-                tr.0 = (tr.0 - dt * 0.6).max(frac);
+                // the trail waits a moment after a hit, then eases down to it
+                tr.0 = (tr.0 - (dt * 0.15).max((tr.0 - frac) * (1.0 - (-4.0 * dt).exp()))).max(frac);
             }
             let trail = tr.0;
+            let frac = tr.2;
             let a = |c: [f32; 4]| [c[0], c[1], c[2], c[3] * alpha];
             out.push(rect(x - 2.0, y - 2.0, w + 4.0, h + 4.0, a([0.0, 0.0, 0.0, 0.9])));
             out.push(rect(x - 1.0, y - 1.0, w + 2.0, h + 2.0, a([0.36, 0.30, 0.20, 1.0])));
@@ -1307,7 +1325,7 @@ impl Game {
                 log!("W drains {} target(s)", targets.len());
                 self.sound("sfx_w_drain");
                 self.anim.play("w_loop", true);
-                self.drain = Some(Drain { targets, t: 0.0, tick: 0.0, rank: p.rank });
+                self.drain = Some(Drain { targets, t: 0.0, tick: 0.0, fx_tick: 0.0, rank: p.rank });
             }
             3 => {
                 let radius = val(&self.c, 3, "castRadius", p.rank) * tuning::RANGE_SCALE * 0.5;
@@ -1420,15 +1438,24 @@ impl Game {
         let vamp = val(&self.c, 2, "VampPercentage", d.rank) / 100.0;
         let mut healed = 0.0;
         let finished = d.t >= dur;
-        if d.tick >= 1.0 / tps || finished {
+        // small hits often (w_tick_interval) for the same damage per second; League's tick rate paces the effects
+        d.fx_tick += dt;
+        let fx_now = d.fx_tick >= 1.0 / tps || finished;
+        if fx_now {
+            d.fx_tick = 0.0;
+        }
+        if d.tick >= tuning::W_TICK_INTERVAL || finished {
+            let per = (val(&self.c, 2, "DamagePerSecond", d.rank) + 0.45 * ap) * d.tick;
             d.tick = 0.0;
-            let per = (val(&self.c, 2, "DamagePerSecond", d.rank) + 0.45 * ap) / tps;
             for t in &alive {
                 let mut dmg = per;
                 if finished {
                     dmg += val(&self.c, 2, "PercentMultiplier", d.rank) * (t.max_hp - t.hp).max(0) as f32;
                 }
                 healed += self.damage(*t, dmg, "W") * vamp;
+                if !fx_now {
+                    continue;
+                }
                 let chest = add(t.pos, [0.0, t.height * 0.6, 0.0]);
                 if !self.vfx_once("w_heal_missile", Follow::ToCaster, Frame { pos: chest, fwd: norm(sub(me.pos, t.pos)), target: None }) {
                     self.fx.burst("w_drain", "tick", chest, norm(sub(me.pos, t.pos)), 0.0);

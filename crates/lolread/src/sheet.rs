@@ -395,4 +395,6 @@ pub mod tuning {
     pub const MR_STRONG: f32 = 40.0;
     /// same for bosses: 63%; Void Staff's 40% pen brings it to 74% (MR)
     pub const MR_BOSS: f32 = 60.0;
+    /// Bountiful Harvest hits this often for the same damage per second (creator: smaller hits, more often); its effects keep League's TicksPerSecond (s)
+    pub const W_TICK_INTERVAL: f32 = 0.05;
 }
