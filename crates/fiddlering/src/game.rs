@@ -2408,6 +2408,13 @@ impl Game {
                     frame(out, x, y, w, h, gold);
                     out.push(rect(x, y, w, h, [0.03, 0.05, 0.07, 1.0], "white"));
                     label(out, &format!("{}", self.level), x + w * 0.5, y + 4.0, h - 8.0, white);
+                    // the Tarnished's level beside his: it opens item slots and gives ability power
+                    let er = format!("ER {}", self.er_level);
+                    let ew = font::width(&er, 13.0) + 12.0;
+                    let (ex, ey) = (x - ew - 4.0, y + 5.0);
+                    frame(out, ex, ey, ew, 20.0, gold_dim);
+                    out.push(rect(ex, ey, ew, 20.0, [0.03, 0.05, 0.07, 1.0], "white"));
+                    label(out, &er, ex + ew * 0.5, ey + 3.5, 13.0, [0.86, 0.78, 0.60, 1.0]);
                 }
                 "stats" => {
                     // League's stat box: what his kit uses right now
@@ -3147,7 +3154,7 @@ impl Game {
                     // locked: the Elden Ring level that opens it
                     let need = tuning::ITEM_SLOT_FIRST_LEVEL + i as f32 * tuning::ITEM_SLOT_LEVEL_STEP;
                     out.push(rect(x, y, 32.0, 32.0, [0.0, 0.0, 0.0, 0.6], "white"));
-                    label(out, &format!("Nv{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
+                    label(out, &format!("ER{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
                 }
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
