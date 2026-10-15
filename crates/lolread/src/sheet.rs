@@ -223,6 +223,7 @@ pub const EFFECTS: &[Effect] = &[
     Effect { id: "item_stasis_flash", effect: "items", trigger: "stasis_start", texture: "fx_glow", render: "billboard", additive: true, count: 1, rate: 0.0, life: 0.35, size_start: 1.6, size_end: 3.2, speed: 0.0, spread: 0.0, up: 1.0, gravity: 0.0, drag: 0.0, spin: 0.0, color_start: [1.0, 0.8471, 0.4392, 0.8784], color_end: [1.0, 0.6275, 0.1882, 0.0], frames: 1, radius: 0.0, motion: "free" },
     Effect { id: "item_stasis_shell", effect: "items", trigger: "stasis", texture: "fx_glow", render: "billboard", additive: true, count: 0, rate: 8.0, life: 0.6, size_start: 1.9, size_end: 1.6, speed: 0.0, spread: 0.0, up: 1.0, gravity: 0.0, drag: 0.0, spin: 0.0, color_start: [1.0, 0.8, 0.3137, 0.3137], color_end: [1.0, 0.6275, 0.1255, 0.0], frames: 1, radius: 0.0, motion: "free" },
     Effect { id: "item_stasis_sparks", effect: "items", trigger: "stasis", texture: "fx_glow", render: "billboard", additive: true, count: 0, rate: 22.0, life: 0.9, size_start: 0.12, size_end: 0.03, speed: 0.0, spread: 0.0, up: 0.8, gravity: 0.0, drag: 0.0, spin: 3.0, color_start: [1.0, 0.9412, 0.6275, 1.0], color_end: [1.0, 0.6902, 0.251, 0.0], frames: 1, radius: 0.6, motion: "orbit" },
+    Effect { id: "item_hatefog", effect: "items", trigger: "fog", texture: "fx_glow", render: "ground", additive: true, count: 0, rate: 6.0, life: 0.9, size_start: 1.4, size_end: 2.0, speed: 0.0, spread: 0.0, up: 0.0, gravity: 0.0, drag: 0.0, spin: 0.5, color_start: [0.6275, 0.1255, 0.4392, 0.502], color_end: [0.251, 0.0627, 0.251, 0.0], frames: 1, radius: 0.6, motion: "free" },
 ];
 
 /// Elden Ring team types Fiddlesticks' abilities hit.
@@ -267,16 +268,25 @@ pub const VFX_EVENTS: &[VfxEvent] = &[
 pub struct ItemRow { pub id: u32, pub effect: &'static str, pub value: f32 }
 pub const ITEMS: &[ItemRow] = &[
     ItemRow { id: 6653, effect: "burn", value: 0.02 },
+    ItemRow { id: 6653, effect: "combat_dmg", value: 0.02 },
+    ItemRow { id: 6653, effect: "combat_dmg_max", value: 0.06 },
     ItemRow { id: 2503, effect: "burn", value: 0.015 },
+    ItemRow { id: 2503, effect: "burn_ap", value: 0.04 },
     ItemRow { id: 3118, effect: "r_haste", value: 20.0 },
+    ItemRow { id: 3118, effect: "hatefog", value: 60.0 },
+    ItemRow { id: 3118, effect: "hatefog_ap", value: 0.05 },
+    ItemRow { id: 3118, effect: "hatefog_mr", value: 10.0 },
     ItemRow { id: 3089, effect: "ap_mult", value: 0.3 },
-    ItemRow { id: 3135, effect: "dmg_mult", value: 0.15 },
+    ItemRow { id: 3135, effect: "none", value: 0.0 },
     ItemRow { id: 4645, effect: "low_hp_mult", value: 0.2 },
     ItemRow { id: 3116, effect: "slow", value: 0.3 },
     ItemRow { id: 3157, effect: "stasis", value: 2.5 },
-    ItemRow { id: 4629, effect: "none", value: 0.0 },
-    ItemRow { id: 3165, effect: "low_hp_mult", value: 0.1 },
-    ItemRow { id: 4633, effect: "dmg_mult", value: 0.08 },
+    ItemRow { id: 4629, effect: "spelldance_ms", value: 0.1 },
+    ItemRow { id: 3165, effect: "grievous", value: 0.4 },
+    ItemRow { id: 4633, effect: "combat_dmg", value: 0.02 },
+    ItemRow { id: 4633, effect: "combat_dmg_max", value: 0.08 },
+    ItemRow { id: 4633, effect: "omnivamp", value: 0.08 },
+    ItemRow { id: 4633, effect: "ap_from_hp", value: 0.02 },
 ];
 
 pub struct SkinTheme { pub id: &'static str, pub matches: &'static str, pub hue: f32, pub sat: f32, pub val: f32 }
@@ -397,4 +407,6 @@ pub mod tuning {
     pub const MR_BOSS: f32 = 60.0;
     /// Bountiful Harvest hits this often for the same damage per second (creator: smaller hits, more often); its effects keep League's TicksPerSecond (s)
     pub const W_TICK_INTERVAL: f32 = 0.05;
+    /// this long without dealing damage ends combat: Liandry's and Riftmaker's stacking damage starts over (s)
+    pub const COMBAT_TIMEOUT: f32 = 3.0;
 }

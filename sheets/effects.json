@@ -1,6 +1,6 @@
 {
   "sheet": "effects",
-  "doc": "Particle emitters of each ability, drawn by the DLL with Fiddlesticks' own particle textures and 3D crow from the player's League. trigger: missile_head (the missile itself), missile_trail (rate along the flight), hit (burst on each target hit), area (burst at the cast point), feared (rate around a feared target's head), tether_beam (W tendril from his Demon_Soul bone to each drained target: one smooth curved ribbon, tapering, layered in row order), victim (rate on each drained target), tick (burst on a target at each drain tick), heal (burst on him when the drain heals), channel (W, rate at caster), final (W last tick, burst on each target), r_channel / storm (R, rate around caster), r_leap (R jump, rate at caster), r_land (R landing, burst at caster). texture: league_assets id or crow (3D raven). render: billboard | stretched (along velocity) | ground (flat, turned to the cast direction) | beam | model. size in m (model: x the League crow's size); radius: spawn radius or orbit radius in m, or 'ability' = the ability's radius. motion: free | orbit (circles the caster, spin = angular speed) | home (flies to the caster). colors RRGGBBAA, start -> end over life. frames = atlas cells per side (a random cell per particle). items: burn (rate on a target burning from Liandry/Blackfire), frost (rate on a target slowed by Rylai), amp (burst when an item adds damage to a Q/E/R hit), aura (rate around him with Rabadon), stasis (rate around him in Zhonya's stasis), stasis_start (burst when it starts).",
+  "doc": "Particle emitters of each ability, drawn by the DLL with Fiddlesticks' own particle textures and 3D crow from the player's League. trigger: missile_head (the missile itself), missile_trail (rate along the flight), hit (burst on each target hit), area (burst at the cast point), feared (rate around a feared target's head), tether_beam (W tendril from his Demon_Soul bone to each drained target: one smooth curved ribbon, tapering, layered in row order), victim (rate on each drained target), tick (burst on a target at each drain tick), heal (burst on him when the drain heals), channel (W, rate at caster), final (W last tick, burst on each target), r_channel / storm (R, rate around caster), r_leap (R jump, rate at caster), r_land (R landing, burst at caster). texture: league_assets id or crow (3D raven). render: billboard | stretched (along velocity) | ground (flat, turned to the cast direction) | beam | model. size in m (model: x the League crow's size); radius: spawn radius or orbit radius in m, or 'ability' = the ability's radius. motion: free | orbit (circles the caster, spin = angular speed) | home (flies to the caster). colors RRGGBBAA, start -> end over life. frames = atlas cells per side (a random cell per particle). items: burn (rate on a target burning from Liandry/Blackfire), frost (rate on a target slowed by Rylai), amp (burst when an item adds damage to a Q/E/R hit), aura (rate around him with Rabadon), stasis (rate around him in Zhonya's stasis), stasis_start (burst when it starts), fog (rate under a target in Malignance's Hatefog).",
   "columns": [
     "id",
     "effect",
@@ -1873,6 +1873,30 @@
       "frames": 1,
       "radius": "0.6",
       "motion": "orbit"
+    },
+    {
+      "id": "item_hatefog",
+      "effect": "items",
+      "trigger": "fog",
+      "texture": "fx_glow",
+      "render": "ground",
+      "blend": "add",
+      "count": 0,
+      "rate": 6,
+      "life": 0.9,
+      "size_start": 1.4,
+      "size_end": 2.0,
+      "speed": 0,
+      "spread": 0,
+      "up": 0.0,
+      "gravity": 0,
+      "drag": 0,
+      "spin": 0.5,
+      "color_start": "a0207080",
+      "color_end": "40104000",
+      "frames": 1,
+      "radius": "0.6",
+      "motion": "free"
     }
   ]
 }

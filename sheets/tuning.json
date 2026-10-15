@@ -265,6 +265,12 @@
       "value": 0.05,
       "unit": "s",
       "why": "Bountiful Harvest hits this often for the same damage per second (creator: smaller hits, more often); its effects keep League's TicksPerSecond"
+    },
+    {
+      "id": "combat_timeout",
+      "value": 3.0,
+      "unit": "s",
+      "why": "this long without dealing damage ends combat: Liandry's and Riftmaker's stacking damage starts over"
     }
   ]
 }

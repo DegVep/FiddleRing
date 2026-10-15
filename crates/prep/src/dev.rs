@@ -84,6 +84,14 @@ pub fn run(args: &[String]) -> Result<()> {
         let w = Wad::open(Path::new(&args[2]))?;
         std::fs::write(&args[4], w.read(&args[3])?)?;
     }
+    if args.get(1).map(|s| s.as_str()) == Some("--items") {
+        // --items <cache>: each item's name, stat lines and text as the HUD shows them
+        let c = lolread::cache::load(&std::fs::read(&args[2])?)?;
+        for i in &c.items {
+            println!("== {} {} (ap {} haste {})\n{}\n{}\n", i.id, i.name, i.ap, i.haste, i.stat_lines.join("\n"), i.text);
+        }
+        return Ok(());
+    }
     if args.get(1).map(|s| s.as_str()) == Some("--grep") {
         // --grep <wad> <text>: printable runs around each case-insensitive match in any chunk
         let w = Wad::open(Path::new(&args[2]))?;

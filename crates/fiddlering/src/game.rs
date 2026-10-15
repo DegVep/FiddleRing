@@ -170,6 +170,20 @@ pub struct Game {
     burns: Vec<(usize, f32, f32, f32)>,
     /// enemies slowed by an item, until when (frost effect)
     frosted: HashMap<usize, f32>,
+    /// Malignance's Hatefog: (target, until, owed damage)
+    hatefog: Vec<(usize, f32, f32)>,
+    /// Morellonomicon's Grievous Wounds: target -> (until, its health last frame)
+    wounded: HashMap<usize, (f32, i32)>,
+    /// in combat since (clock) and the last time he dealt damage: Liandry's / Riftmaker's stacking damage
+    combat_since: f32,
+    last_dealt: f32,
+    /// Riftmaker's omnivamp waiting for the player, Cosmic Drive's Spelldance until (clock)
+    heal_owed: f32,
+    spelldance_until: f32,
+    /// the max HP Elden Ring gave him and the one written with the items' health on top
+    hp_base: i32,
+    hp_written: i32,
+    last_hp: i32,
     /// the model's yaw, easing towards where he faces
     model_yaw: f32,
     /// League particle systems playing, and the lasting ones by (vfx_events id, missile id / character)
@@ -390,6 +404,15 @@ impl Game {
             bars_clear_at: 0.0,
             burns: vec![],
             frosted: HashMap::new(),
+            hatefog: vec![],
+            wounded: HashMap::new(),
+            combat_since: 0.0,
+            last_dealt: -100.0,
+            heal_owed: 0.0,
+            spelldance_until: 0.0,
+            hp_base: 0,
+            hp_written: 0,
+            last_hp: 0,
             model_yaw: 0.0,
             vfx: Vfx::new(),
             vfx_live: HashMap::new(),
@@ -577,12 +600,37 @@ impl Game {
         if hp <= 0 {
             return 0.0;
         }
-        // League items on ability hits: more damage, burns, slows
+        // League items. Every hit: Liandry's / Riftmaker's damage growing each second in combat
         let mut amount = amount;
-        if matches!(what, "Q" | "W" | "E" | "R") && !self.items.is_empty() {
-            amount *= 1.0 + self.item_effect("dmg_mult");
+        let magic = matches!(what, "Q" | "W" | "E" | "R" | "BURN" | "FOG");
+        if self.clock - self.last_dealt > tuning::COMBAT_TIMEOUT {
+            self.combat_since = self.clock;
+        }
+        self.last_dealt = self.clock;
+        let secs = (self.clock - self.combat_since).floor();
+        let grow = self.item_rows("combat_dmg").map(|(id, v)| (v * secs).min(self.item_value(id, "combat_dmg_max"))).sum::<f32>();
+        amount *= 1.0 + grow;
+        // magic damage: Shadowflame's crits under 40% health, Spelldance, Grievous Wounds
+        if magic && !self.items.is_empty() {
             if (hp as f32) < 0.4 * c.modules.data.max_hp.max(1) as f32 {
                 amount *= 1.0 + self.item_effect("low_hp_mult");
+            }
+            if self.item_effect("spelldance_ms") > 0.0 {
+                self.spelldance_until = self.clock + 4.0;
+            }
+            let gw = self.item_effect("grievous");
+            if gw > 0.0 {
+                self.wounded.insert(ch.ptr, (self.clock + 3.0, hp));
+            }
+        }
+        // ability hits: burns, slows, Hatefog
+        if matches!(what, "Q" | "W" | "E" | "R") && !self.items.is_empty() {
+            if what == "R" && self.item_effect("hatefog") > 0.0 {
+                let until = self.clock + 3.0;
+                match self.hatefog.iter_mut().find(|f| f.0 == ch.ptr) {
+                    Some(f) => f.1 = until,
+                    None => self.hatefog.push((ch.ptr, until, 0.0)),
+                }
             }
             let burn = self.item_effect("burn");
             if burn > 0.0 {
@@ -597,14 +645,15 @@ impl Game {
                 self.apply_cc(ch.ptr, 1.0, false, false, slow);
                 self.frosted.insert(ch.ptr, self.clock + 1.0);
             }
-            if what != "W" && self.item_effect("dmg_mult") + self.item_effect("low_hp_mult") > 0.0 {
+            let crit = (hp as f32) < 0.4 * c.modules.data.max_hp.max(1) as f32 && self.item_effect("low_hp_mult") > 0.0;
+            if what != "W" && (crit || grow > 0.0) {
                 self.fx.burst("items", "amp", add(ch.pos, [0.0, ch.height * 0.6, 0.0]), [0.0, 1.0, 0.0], 0.0);
             }
         }
         let c = chr_mut(ch.ptr);
         // his abilities and burns are magic damage: the enemy's magic resistance, less his penetration
         let mr = self.enemy_mr(c, ch.ptr);
-        if matches!(what, "Q" | "W" | "E" | "R" | "BURN") {
+        if magic {
             amount *= if mr >= 0.0 { 100.0 / (100.0 + mr) } else { 2.0 - 100.0 / (100.0 - mr) };
         }
         let dmg = if what == "W" {
@@ -618,6 +667,13 @@ impl Game {
         };
         let new = (hp - dmg).max(0);
         c.modules.data.hp = new;
+        if let Some(w) = self.wounded.get_mut(&ch.ptr) {
+            w.1 = new;
+        }
+        // Riftmaker at full stacks: omnivamp
+        if self.item_rows("omnivamp").any(|(id, _)| self.item_value(id, "combat_dmg") * secs >= self.item_value(id, "combat_dmg_max")) {
+            self.heal_owed += (hp - new) as f32 * self.item_effect("omnivamp");
+        }
         self.damaged.insert(ch.ptr, c.modules.data.max_hp);
         if what != "W" || new == 0 {
             log!("HIT {what} chr={} team={} hp {hp}->{new} ({dmg}, mr after pen {mr:.0})", c.character_id, c.team_type);
@@ -832,7 +888,9 @@ impl Game {
         let me = read_chr(&player.chr_ins);
         let rune_ap = unsafe { player.player_game_data.as_ref().level.saturating_sub(1) } as f32 * tuning::AP_PER_RUNE_LEVEL;
         let item_ap: f32 = self.items.iter().filter_map(|&i| self.item_info(i)).map(|i| i.ap).sum();
-        let ap = (rune_ap + item_ap) * (1.0 + self.item_effect("ap_mult"));
+        let ap_from_hp = self.item_stat("de vida") * self.item_effect("ap_from_hp");
+        let blackfire = self.item_effect("burn_ap") * self.burns.len() as f32;
+        let ap = (rune_ap + item_ap + ap_from_hp) * (1.0 + self.item_effect("ap_mult") + blackfire);
         self.ap_total = ap;
 
         // hide the Tarnished under Fiddlesticks
@@ -841,6 +899,7 @@ impl Game {
         let interrupted = self.immune_to_cc(&mut player.chr_ins.modules.super_armor);
         hold_super_armor(&mut player.chr_ins);
         let in_stasis = self.update_stasis(&mut player.chr_ins);
+        self.update_item_stats(&mut player.chr_ins);
         // whose progress: the loaded save slot and the character's name
         {
             let pgd = unsafe { player.player_game_data.as_ref() };
@@ -922,6 +981,7 @@ impl Game {
         self.hostile_ptrs = hostiles.iter().map(|h| h.ptr).collect();
         self.track_bosses(wcm);
         self.update_burns(dt);
+        self.update_item_dots(dt);
         if in_stasis {
             self.fx.stream("items", "stasis", 0, me.pos, [0.0, 1.0, 0.0], 0.0, dt);
         }
@@ -1066,9 +1126,11 @@ impl Game {
         }
         self.update_drain(dt, &me, player_ptr, player_level_ap);
         // Bountiful Harvest: the Tarnished drags their feet while it drains (root motion follows animation speed)
-        if self.drain.is_some() || self.w_slowed {
-            self.w_slowed = self.drain.is_some();
-            chr_mut(player_ptr).modules.behavior.animation_speed = if self.w_slowed { tuning::W_SELF_SLOW } else { 1.0 };
+        // and Cosmic Drive's movement speed (stat + Spelldance) speeds him up
+        let speed = if self.drain.is_some() { tuning::W_SELF_SLOW } else { 1.0 } * self.move_mult();
+        if speed != 1.0 || self.w_slowed {
+            self.w_slowed = speed != 1.0;
+            chr_mut(player_ptr).modules.behavior.animation_speed = speed;
         }
         self.update_ult(dt, &me, forward, player_ptr, &hostiles, player_level_ap);
         self.update_cc();
@@ -2513,6 +2575,8 @@ impl Game {
             return;
         }
         let mut pool: Vec<u32> = sheet::ITEMS.iter().map(|r| r.id).filter(|id| !self.items.contains(id) && self.item_info(*id).is_some()).collect();
+        pool.sort();
+        pool.dedup();
         if pool.len() < 3 {
             return;
         }
@@ -2626,12 +2690,102 @@ impl Game {
         } else {
             tuning::MR_BASE
         };
-        let mr = base + 100.0 / cut - 100.0;
+        let fog = if self.hatefog.iter().any(|f| f.0 == ptr) { self.item_effect("hatefog_mr") } else { 0.0 };
+        let mr = base + 100.0 / cut - 100.0 - fog;
         if mr < 0.0 {
             return mr;
         }
         let (pen, pen_pct) = self.magic_pen();
         (mr * (1.0 - pen_pct / 100.0) - pen).max(0.0)
+    }
+
+    /// (item, value) of each owned item's sheet row with this effect.
+    fn item_rows<'a>(&'a self, effect: &'a str) -> impl Iterator<Item = (u32, f32)> + 'a {
+        self.items.iter().flat_map(move |id| sheet::ITEMS.iter().filter(move |r| r.id == *id && r.effect == effect).map(|r| (r.id, r.value)))
+    }
+
+    fn item_value(&self, id: u32, effect: &str) -> f32 {
+        sheet::ITEMS.iter().find(|r| r.id == id && r.effect == effect).map(|r| r.value).unwrap_or(0.0)
+    }
+
+    /// Sum of the owned items' stat lines ending in `name` ("de vida", "de armadura"...); a % line counts as a share.
+    fn item_stat(&self, name: &str) -> f32 {
+        self.items
+            .iter()
+            .filter_map(|&i| self.item_info(i))
+            .flat_map(|i| i.stat_lines.iter())
+            .filter(|l| l.ends_with(name))
+            .filter_map(|l| {
+                let n = l.split_whitespace().next()?;
+                let v: f32 = n.trim_end_matches('%').parse().ok()?;
+                Some(if n.ends_with('%') { v / 100.0 } else { v })
+            })
+            .sum()
+    }
+
+    fn move_mult(&self) -> f32 {
+        let dance = if self.clock < self.spelldance_until { self.item_effect("spelldance_ms") } else { 0.0 };
+        1.0 + self.item_stat("de velocidad de movimiento") + dance
+    }
+
+    /// The items' health on top of his Elden Ring max HP, armor taking a share off the damage he takes (League's
+    /// 100 / (100 + armor)), Riftmaker's omnivamp. (Mana: he has none.)
+    fn update_item_stats(&mut self, c: &mut ChrIns) {
+        let d = &mut c.modules.data;
+        // the game's own max HP: whatever it holds unless it is still the value written last frame
+        if d.max_hp != self.hp_written || self.hp_written == 0 {
+            self.hp_base = d.max_hp;
+        }
+        let bonus = self.item_stat("de vida").round() as i32;
+        let max = self.hp_base + bonus;
+        if d.max_hp != max {
+            d.max_hp = max;
+        }
+        self.hp_written = max;
+        let armor = self.item_stat("de armadura");
+        if armor > 0.0 && d.hp > 0 && d.hp < self.last_hp {
+            let refund = (self.last_hp - d.hp) as f32 * (1.0 - 100.0 / (100.0 + armor));
+            d.hp = (d.hp + refund.round() as i32).min(d.max_hp);
+        }
+        if self.heal_owed >= 1.0 && d.hp > 0 {
+            d.hp = (d.hp + self.heal_owed.floor() as i32).min(d.max_hp);
+            self.heal_owed -= self.heal_owed.floor();
+        }
+        self.last_hp = d.hp;
+    }
+
+    /// Hatefog's damage on the targets of his ultimate, and Grievous Wounds cutting what the wounded heal.
+    fn update_item_dots(&mut self, dt: f32) {
+        let clock = self.clock;
+        let alive = self.alive_ptrs.clone();
+        self.hatefog.retain(|f| f.1 > clock && alive.contains(&f.0));
+        let dps = self.item_effect("hatefog") + self.item_effect("hatefog_ap") * self.ap_total;
+        let mut hits = vec![];
+        for f in self.hatefog.iter_mut() {
+            f.2 += dps * dt;
+            if f.2 >= 1.0 {
+                hits.push((f.0, f.2));
+                f.2 = 0.0;
+            }
+        }
+        let fogged: Vec<usize> = self.hatefog.iter().map(|f| f.0).collect();
+        for p in fogged {
+            let ch = read_chr(chr_mut(p));
+            self.fx.stream("items", "fog", p, ch.pos, [0.0, 1.0, 0.0], 0.0, dt);
+        }
+        for (p, dmg) in hits {
+            let ch = read_chr(chr_mut(p));
+            self.damage(ch, dmg / tuning::DAMAGE_SCALE.max(0.001), "FOG");
+        }
+        let cut = self.item_effect("grievous");
+        self.wounded.retain(|p, w| w.0 > clock && alive.contains(p));
+        for (p, w) in self.wounded.iter_mut() {
+            let data = &mut chr_mut(*p).modules.data;
+            if data.hp > w.1 && w.1 > 0 {
+                data.hp = w.1 + ((data.hp - w.1) as f32 * (1.0 - cut)).round() as i32;
+            }
+            w.1 = data.hp;
+        }
     }
 
     /// Item burns: a share of the target's max HP per second while they last.

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--clips" | "--extract" | "--dump" | "--magic" | "--has" | "--grep" | "--bnk")) {
+    if args.iter().any(|a| matches!(a.as_str(), "--explore" | "--dumptex" | "--show" | "--clips" | "--extract" | "--dump" | "--magic" | "--has" | "--items" | "--grep" | "--bnk")) {
         if let Err(e) = dev::run(&args) {
             eprintln!("{e:#}");
             std::process::exit(1);
