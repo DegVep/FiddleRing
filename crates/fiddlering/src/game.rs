@@ -1036,6 +1036,9 @@ impl Game {
             self.sound("sfx_death");
         } else if me.hp > 0 && self.dead {
             self.dead = false;
+            // back at a grace: abilities and Zhonya ready again
+            self.cd = Default::default();
+            self.stasis_ready_at = 0.0;
             self.anim.play("respawn", true);
             self.sound("vo_respawn");
             self.sound("sfx_respawn");
