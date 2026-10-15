@@ -2387,7 +2387,8 @@ impl Game {
                         ("Vel. de ataque", format!("{:.2}", self.attack_speed()), StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
                         ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
                         ("Pen. mágica", pen_txt, StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
-                        ("Alcance", format!("{:.0}", self.stat("attack_range")), StatIcon::Tex("stat_adaptive"), [0.85, 0.85, 0.80, 1.0]),
+                        // League units: his base, with Cosmic Drive / Spelldance and the W slow as he moves now
+                        ("Vel. de movimiento", format!("{:.0}", self.stat("move_speed") * self.move_mult() * if self.drain.is_some() { tuning::W_SELF_SLOW } else { 1.0 }), StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
                     ];
                     let rh = h / rows.len() as f32;
                     for (i, (k, v, ic, col)) in rows.iter().enumerate() {
