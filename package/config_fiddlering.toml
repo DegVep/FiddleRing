@@ -1,0 +1,12 @@
+# FiddleRing: ModEngine2 profile. Paths are relative to this file.
+[modengine]
+debug = false
+external_dlls = [ 'fiddlering.dll' ]
+
+[extension.mod_loader]
+enabled = true
+loose_params = false
+mods = []
+
+[extension.scylla_hide]
+enabled = false

@@ -8,3 +8,9 @@ save-backup/
 media/
 graphify-out/
 .claude/
+
+# local only: notes for the agent, launch helpers with this PC's paths, tooling locks
+CONTINUAR.md
+skills-lock.json
+Jugar FiddleRing (prueba).bat
+scripts/run_test.sh

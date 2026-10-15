@@ -1,9 +1,11 @@
 # Link with llvm-mingw's clang + lld (tools/, downloaded from github.com/mstorsjo/llvm-mingw): the default GNU ld
-# mis-links raw-dylib imports inside a DLL. tools/gnu-shim maps the libgcc names rustc asks for to compiler-rt.
+# mis-links raw-dylib imports inside a DLL. Paths are relative to the workspace root (build from there). tools/gnu-shim maps the libgcc names rustc asks for to compiler-rt.
 [target.x86_64-pc-windows-gnu]
-linker = "C:/Users/degve/Downloads/FiddleRing/tools/llvm-mingw-20260922-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
-rustflags = ["-C", "link-self-contained=no", "-C", "link-arg=-LC:/Users/degve/Downloads/FiddleRing/tools/gnu-shim", "-C", "link-arg=-fuse-ld=lld"]
+linker = "tools/llvm-mingw-20260922-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
+rustflags = ["-C", "link-self-contained=no", "-C", "link-arg=-fuse-ld=lld"]
 
 [env]
-CC_x86_64_pc_windows_gnu = "C:/Users/degve/Downloads/FiddleRing/tools/llvm-mingw-20260922-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
-AR_x86_64_pc_windows_gnu = "C:/Users/degve/Downloads/FiddleRing/tools/llvm-mingw-20260922-ucrt-x86_64/bin/llvm-ar.exe"
+# the libgcc shim, found by clang through LIBRARY_PATH (relative paths in rustflags would follow each build script)
+LIBRARY_PATH = { value = "tools/gnu-shim", relative = true }
+CC_x86_64_pc_windows_gnu = { value = "tools/llvm-mingw-20260922-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe", relative = true }
+AR_x86_64_pc_windows_gnu = { value = "tools/llvm-mingw-20260922-ucrt-x86_64/bin/llvm-ar.exe", relative = true }

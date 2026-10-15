@@ -1,8 +1,8 @@
 # FiddleRing — MODLOG
 
 Mashup: play Elden Ring as League of Legends' Fiddlesticks (model, animations, abilities, voice), League-style
-levels 1-18. Host: Elden Ring 2.7.1.0 (Steam, D:\SteamLibrary\steamapps\common\ELDEN RING). Companion: League of
-Legends 16.20 (C:\Riot Games\League of Legends). Solo, offline (Melty launches ER through ModEngine2, EAC off).
+levels 1-18. Host: Elden Ring 2.7.1.0 (Steam). Companion: League of
+Legends 16.20. Solo, offline (Melty launches ER through ModEngine2, EAC off).
 
 ## Route
 - ER: native Rust DLL loaded by ModEngine2 (`external_dlls`), Melty installs ModEngine2 release-2.1.0 itself.
