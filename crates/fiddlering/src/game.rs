@@ -2408,13 +2408,6 @@ impl Game {
                     frame(out, x, y, w, h, gold);
                     out.push(rect(x, y, w, h, [0.03, 0.05, 0.07, 1.0], "white"));
                     label(out, &format!("{}", self.level), x + w * 0.5, y + 4.0, h - 8.0, white);
-                    // the Tarnished's level beside his: it opens item slots and gives ability power
-                    let er = format!("ER {}", self.er_level);
-                    let ew = font::width(&er, 13.0) + 12.0;
-                    let (ex, ey) = (x - ew - 4.0, y + 5.0);
-                    frame(out, ex, ey, ew, 20.0, gold_dim);
-                    out.push(rect(ex, ey, ew, 20.0, [0.03, 0.05, 0.07, 1.0], "white"));
-                    label(out, &er, ex + ew * 0.5, ey + 3.5, 13.0, [0.86, 0.78, 0.60, 1.0]);
                 }
                 "stats" => {
                     // League's stat box: what his kit uses right now
@@ -2435,8 +2428,8 @@ impl Game {
                         ("Vel. de ataque", format!("{:.2}", self.attack_speed()), StatIcon::Tex("stat_as"), [1.0, 0.86, 0.38, 1.0]),
                         ("Vel. de habilidad", format!("{:.0}", haste.max(0.0)), StatIcon::Tex("stat_haste"), [0.62, 0.86, 1.0, 1.0]),
                         ("Pen. mágica", pen_txt, StatIcon::Glyph("✦"), [0.98, 0.45, 0.80, 1.0]),
-                        // how fast he really moves now (walk, run, sprint, items, W slow), metres/s in League units
-                        ("Vel. de movimiento", format!("{:.0}", self.speed / tuning::RANGE_SCALE), StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
+                        // League units: his base, with Cosmic Drive / Spelldance and the W slow as he moves now
+                        ("Vel. de movimiento", format!("{:.0}", self.stat("move_speed") * self.move_mult() * if self.drain.is_some() { tuning::W_SELF_SLOW } else { 1.0 }), StatIcon::Tex("stat_ms"), [0.85, 0.95, 0.85, 1.0]),
                     ];
                     let rh = h / rows.len() as f32;
                     for (i, (k, v, ic, col)) in rows.iter().enumerate() {
@@ -3154,7 +3147,7 @@ impl Game {
                     // locked: the Elden Ring level that opens it
                     let need = tuning::ITEM_SLOT_FIRST_LEVEL + i as f32 * tuning::ITEM_SLOT_LEVEL_STEP;
                     out.push(rect(x, y, 32.0, 32.0, [0.0, 0.0, 0.0, 0.6], "white"));
-                    label(out, &format!("ER{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
+                    label(out, &format!("Nv{need:.0}"), x + 16.0, y + 10.0, 11.0, [0.55, 0.50, 0.42, 1.0]);
                 }
                 if let Some(&id) = self.items.get(i) {
                     icon(out, id, x, y, 32.0);
