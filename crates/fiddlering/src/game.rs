@@ -16,7 +16,7 @@ use lolread::sheet::{self, tuning};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_DOWN, VK_F2, VK_F3, VK_LEFT, VK_MENU, VK_RETURN, VK_RIGHT, VK_UP};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_DOWN, VK_F2, VK_F3, VK_F4, VK_LEFT, VK_MENU, VK_RETURN, VK_RIGHT, VK_UP};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 type V3 = [f32; 3];
@@ -142,6 +142,9 @@ pub struct Game {
     skin_menu: Option<(usize, usize)>,
     skin_job: Option<(u32, std::sync::mpsc::Receiver<bool>)>,
     skin_note: Option<(String, f32)>,
+    /// F4 last frame, and the switch notice until (clock)
+    mode_key: bool,
+    mode_note_until: f32,
     menu_keys: [bool; 6],
     /// the Elden Ring character whose progress is loaded (save slot + name)
     save_key: Option<String>,
@@ -390,6 +393,8 @@ impl Game {
             skin_menu: None,
             skin_job: None,
             skin_note: None,
+            mode_key: false,
+            mode_note_until: 0.0,
             menu_keys: [false; 6],
             save_key: None,
             hostile_ptrs: vec![],
@@ -697,6 +702,9 @@ impl Game {
     /// Runs right after Elden Ring turned the pad/keys into action requests: keep Fiddlesticks' buttons for his
     /// kit and erase them everywhere the Tarnished's behaviour would read them.
     pub fn capture_ability_inputs() {
+        if !fiddle_on() {
+            return;
+        }
         unsafe {
             if let Ok(w) = WorldChrMan::instance_mut() {
                 if let Some(p) = w.main_player.as_deref_mut() {
@@ -872,6 +880,9 @@ impl Game {
     /// Runs after Elden Ring's MenuMan and before Scaleform draws: its HUD is hidden (HideAll; writing at DrawBegin
     /// came too late, and zeroing its bar values did nothing). The mod draws enemy and boss health itself.
     pub fn hide_vanilla_hud() {
+        if !fiddle_on() {
+            return;
+        }
         let Ok(fe) = (unsafe { eldenring::cs::CSFeManImp::instance_mut() }) else { return };
         // ShowAll is the Esc menu: leave it be
         if tuning::HIDE_ER_BARS > 0.5 && fe.hud_state != eldenring::cs::CSFeManHudState::ShowAll {
@@ -880,6 +891,9 @@ impl Game {
     }
 
     pub fn block_inputs() {
+        if !fiddle_on() {
+            return;
+        }
         unsafe {
             if let Ok(w) = WorldChrMan::instance_mut() {
                 if let Some(p) = w.main_player.as_deref_mut() {
@@ -904,6 +918,11 @@ impl Game {
         }
 
         self.watch_menus();
+        self.update_mode();
+        if !fiddle_on() {
+            self.publish_hud_only();
+            return;
+        }
         self.update_skins();
         self.update_items();
         // loading screens (er_menus sheet): nothing of Fiddlesticks on them
@@ -1252,6 +1271,122 @@ impl Game {
     }
 
     /// Logs which Elden Ring UI elements are visible and the HUD state, on every change (to map screens to ids).
+    /// F4: play as Fiddlesticks or as the Tarnished. Switching to the Tarnished gives him back everything the mod
+    /// takes over (body, inputs, HUD, menus, speed, health, flags); switching back takes it over again.
+    fn update_mode(&mut self) {
+        let down = game_focused() && key_down(VK_F4.0 as i32);
+        let pressed = down && !self.mode_key;
+        self.mode_key = down;
+        if !pressed {
+            return;
+        }
+        let on = !fiddle_on();
+        FIDDLE_ON.store(on, std::sync::atomic::Ordering::Relaxed);
+        let _ = std::fs::write(mode_path(), if on { "fiddlesticks" } else { "tarnished" });
+        self.mode_note_until = self.clock + 3.0;
+        log!("MODE {}", if on { "Fiddlesticks" } else { "Tarnished" });
+        if on {
+            self.sound("vo_respawn");
+            return;
+        }
+        let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
+        let Some(player) = wcm.main_player.as_deref_mut() else { return };
+        let ptr = &player.chr_ins as *const ChrIns as usize;
+        self.cancel_channels(ptr);
+        self.stasis_until = 0.0;
+        self.inv_open = None;
+        self.skin_menu = None;
+        let c = &mut player.chr_ins;
+        c.base_transparency = 1.0;
+        c.opacity_keyframes_multiplier = 1.0;
+        c.modules.behavior.animation_speed = 1.0;
+        self.w_slowed = false;
+        let f = &mut c.debug_flags;
+        f.set_disabled_hit(false);
+        f.set_disabled_movement(false);
+        f.set_disabled_secondary_actions(false);
+        // his items' health off again
+        let d = &mut c.modules.data;
+        if self.hp_written != 0 && d.max_hp == self.hp_written {
+            d.max_hp = self.hp_base;
+            d.hp = d.hp.min(d.max_hp);
+        }
+        self.hp_written = 0;
+        if let Ok(fe) = unsafe { eldenring::cs::CSFeManImp::instance_mut() } {
+            if fe.hud_state == eldenring::cs::CSFeManHudState::HideAll {
+                fe.hud_state = eldenring::cs::CSFeManHudState::Default;
+            }
+        }
+    }
+
+    /// As the Tarnished nothing of the mod is drawn but its F4 tag.
+    fn publish_hud_only(&mut self) {
+        // nothing on loading screens, the map or cutscenes either
+        let drawn = unsafe { WorldChrMan::instance() }.ok().and_then(|w| w.main_player.as_deref()).map(|p| p.chr_ins.chr_flags1c5.enable_render()).unwrap_or(false);
+        if !drawn || sheet::HIDE_ON_UI.iter().any(|&i| self.ui_seen & (1 << i) != 0) {
+            self.publish(None);
+            return;
+        }
+        let mut id = [0f32; 16];
+        for i in 0..4 {
+            id[i * 5] = 1.0;
+        }
+        let screen = self.mode_sprites();
+        *SCENE.lock().unwrap() = Some(Scene { models: vec![], cam: id, fov: 1.0, near: 0.1, far: 100.0, world: vec![], vfx: vec![], screen, shot: None });
+    }
+
+    /// The F4 tag (top right as the Tarnished, over the portrait as Fiddlesticks) and, after a switch, a notice.
+    fn mode_sprites(&self) -> Vec<Sprite> {
+        let mut out = vec![];
+        let rect = |x: f32, y: f32, w: f32, h: f32, color: [f32; 4], tex: &'static str| Sprite {
+            tex,
+            additive: false,
+            pos: [[x, y, 0.], [x + w, y, 0.], [x + w, y + h, 0.], [x, y + h, 0.]],
+            uv: quad_uv(),
+            color,
+        };
+        let gold = [0.78, 0.67, 0.43, 1.0];
+        let ivory = [0.96, 0.92, 0.82, 1.0];
+        let on = fiddle_on();
+        let avatar = if self.skin != 0 && self.c.icons.contains_key(skin_icon(self.skin)) { skin_icon(self.skin) } else { "icon_portrait" };
+        // the tag: a key cap and what it switches to
+        let (label, x, y) = if on { ("Sinluz", 661.0, 908.0) } else { ("Fiddlesticks", 1690.0, 24.0) };
+        let size = 14.0;
+        let w = 40.0 + font::width(label, size) + if on { 0.0 } else { 30.0 };
+        out.push(rect(x - 1.0, y - 1.0, w + 2.0, 26.0, [gold[0], gold[1], gold[2], 0.7], "white"));
+        out.push(rect(x, y, w, 24.0, [0.02, 0.03, 0.04, 0.85], "white"));
+        out.push(rect(x + 3.0, y + 3.0, 26.0, 18.0, gold, "white"));
+        out.push(rect(x + 4.0, y + 4.0, 24.0, 16.0, [0.08, 0.07, 0.05, 1.0], "white"));
+        out.extend(font::text("F4", x + 16.0, y + 5.0, 12.0, [1.0, 0.86, 0.50, 1.0]));
+        let mut tx = x + 35.0;
+        if !on {
+            out.push(rect(tx, y + 2.0, 20.0, 20.0, [1.0, 1.0, 1.0, 1.0], avatar));
+            tx += 26.0;
+        }
+        out.extend(font::text(label, tx + font::width(label, size) * 0.5, y + 4.5, size, ivory));
+        // the notice after a switch, fading out
+        let left = self.mode_note_until - self.clock;
+        if left > 0.0 {
+            let a = left.min(1.0);
+            let msg = if on { "Ahora juegas como Fiddlesticks" } else { "Ahora juegas como el Sinluz" };
+            let sub = if on { "F4: volver al Sinluz" } else { "F4: volver a Fiddlesticks" };
+            let tw = font::title_width(msg, 34.0).max(360.0) + 120.0;
+            let (bx, by) = (960.0 - tw * 0.5, 180.0);
+            out.push(rect(bx, by, tw, 92.0, [0.0, 0.0, 0.0, 0.6 * a], "white"));
+            out.push(rect(bx, by, tw, 1.5, [gold[0], gold[1], gold[2], a], "white"));
+            out.push(rect(bx, by + 90.5, tw, 1.5, [gold[0], gold[1], gold[2], a], "white"));
+            out.push(rect(bx + 24.0, by + 16.0, 60.0, 60.0, [1.0, 1.0, 1.0, a], if on { avatar } else { "white" }));
+            if !on {
+                out.push(rect(bx + 25.0, by + 17.0, 58.0, 58.0, [0.05, 0.05, 0.06, a], "white"));
+                out.extend(font::title_text("ER", bx + 54.0, by + 31.0, 28.0, [0.85, 0.72, 0.45, a]));
+            }
+            out.extend(font::title_text(msg, 960.0 + 40.0 + 2.0, by + 16.0 + 2.0, 34.0, [0.0, 0.0, 0.0, 0.8 * a]));
+            out.extend(font::title_text(msg, 960.0 + 40.0, by + 16.0, 34.0, [0.97, 0.90, 0.72, a]));
+            out.extend(font::text(sub, 960.0 + 40.0, by + 60.0, 15.0, [0.75, 0.72, 0.65, a]));
+        }
+        out
+    }
+
     fn watch_menus(&mut self) {
         let Ok(menu) = (unsafe { eldenring::cs::CSMenuManImp::instance() }) else { return };
         let mut vis: u128 = 0;
@@ -1262,7 +1397,7 @@ impl Game {
         }
         let hud = unsafe { eldenring::cs::CSFeManImp::instance() }.map(|f| f.hud_state as i32).unwrap_or(-1);
         // League champions have no equipment or inventory: back out of those screens as they open
-        if sheet::CLOSE_UI.iter().any(|&i| vis & (1 << i) != 0) && self.clock - self.last_close > 0.3 {
+        if fiddle_on() && sheet::CLOSE_UI.iter().any(|&i| vis & (1 << i) != 0) && self.clock - self.last_close > 0.3 {
             self.last_close = self.clock;
             press_escape();
         }
@@ -1916,6 +2051,8 @@ impl Game {
                 self.shot_at = None;
             }
         }
+        let tag = self.mode_sprites();
+        scene.screen.extend(tag);
         *SCENE.lock().unwrap() = Some(scene);
     }
 
@@ -3160,4 +3297,21 @@ fn exe_text() -> Option<(usize, usize)> {
             (base + ((sec + 12) as *const u32).read_unaligned() as usize, ((sec + 8) as *const u32).read_unaligned() as usize)
         })
     }
+}
+
+/// Playing as Fiddlesticks (else the Tarnished, F4), remembered in mode.txt.
+static FIDDLE_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+fn fiddle_on() -> bool {
+    static LOADED: std::sync::Once = std::sync::Once::new();
+    LOADED.call_once(|| {
+        if std::fs::read_to_string(mode_path()).map(|s| s.trim() == "tarnished").unwrap_or(false) {
+            FIDDLE_ON.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    });
+    FIDDLE_ON.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+fn mode_path() -> std::path::PathBuf {
+    crate::log::data_dir().join("mode.txt")
 }
